@@ -1,6 +1,12 @@
 ### Get advice
 GET http://localhost:8080/advice
 
+### Get adviceFAQ
+GET http://localhost:8080/faq
+
+### youtube
+http://localhost:8080/popular-resource?genre=cooking
+
 ### Upload PDF for analysis
 POST http://localhost:8080/upload
 Content-Type: multipart/form-data; boundary=boundary

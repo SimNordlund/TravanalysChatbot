@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.Loader;
 
 @RestController
 public class ChatController {
@@ -30,6 +31,7 @@ public class ChatController {
         .content();
   }
 
+
   @PostMapping("/upload")
   public String handleFileUpload(
       @RequestParam("file") MultipartFile file,
@@ -48,7 +50,7 @@ public class ChatController {
 
       // Handle PDFs specifically
       if (filename != null && filename.toLowerCase().endsWith(".pdf")) {
-        try (PDDocument document = PDDocument.load(file.getInputStream())) {
+        try (PDDocument document = Loader.loadPDF(file.getInputStream().readAllBytes())) { // use Loader.loadPDF
           PDFTextStripper stripper = new PDFTextStripper();
           content = stripper.getText(document);
         }

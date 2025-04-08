@@ -5,7 +5,7 @@ GET http://localhost:8080/advice
 GET http://localhost:8080/faq
 
 ### youtube
-http://localhost:8080/popular-resource?genre=cooking
+http://localhost:8080/popular-resource?genre=Kundjävel
 
 ### Upload PDF for analysis
 POST http://localhost:8080/upload

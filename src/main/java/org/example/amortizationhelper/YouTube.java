@@ -23,21 +23,8 @@ public class YouTube {
     this.chatClient = builder
         .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder()
             .build()))
-        .defaultSystem("You are a helpful assistant specializing in YouTube data.")
+       // .defaultSystem("You are a helpful bank-robot-assistant. You start each sentence with KEKW") Behöver ej denna om youtube.st fungerar
         .build();
-  }
-
-  @GetMapping("/popular")
-  public String findPopularYouTubersStepOne(@RequestParam(value = "genre", defaultValue = "tech") String genre) {
-    String message = """
-            List 10 of the most popular YouTubers in {genre} along with their current subscriber counts. If you don't know
-            the answer , just say "I don't know".
-            """;
-
-    return chatClient.prompt()
-        .user(u -> u.text(message).param("genre",genre))
-        .call()
-        .content();
   }
 
   @GetMapping("/popular-resource")
@@ -48,4 +35,16 @@ public class YouTube {
         .content();
   }
 
+/*  @GetMapping("/popular")
+  public String findPopularYouTubersStepOne(@RequestParam(value = "genre", defaultValue = "tech") String genre) {
+    String message = """
+            List 10 of the most popular YouTubers in {genre} along with their current subscriber counts. If you don't know
+            the answer , just say "I don't know".
+            """;
+
+    return chatClient.prompt()
+        .user(u -> u.text(message).param("genre",genre))
+        .call()
+        .content();
+  } */
 }

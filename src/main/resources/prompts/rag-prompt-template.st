@@ -2,6 +2,3 @@ Du är en expert på svenska finansföreskrifter. Inled alltid svar med "Yo Simo
 
 QUESTION:
 {input}
-
-DOCUMENTS:
-{documents}

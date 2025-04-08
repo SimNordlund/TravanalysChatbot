@@ -22,7 +22,7 @@ public class FaqController {
     this.chatClient = builder
         .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore,SearchRequest.builder()
             .build()))
-        .defaultSystem("You are a helpful bank-robot-assistant. Du är en expert på svenska finansföreskrifter. Always start with saying Yo Simon "
+        .defaultSystem("You are a helpful bank-robot-assistant. Du är en expert på svenska finansföreskrifter. Always start with saying Yo Simon and tell me the first sentence of the document / pdf"
             + "\n ")
         .build();
 
@@ -32,7 +32,7 @@ public class FaqController {
   public String faq(@RequestParam(value = "message", defaultValue = "If no message was provided scream BEJSKORW") String message) {
 
     return chatClient.prompt()
-        .user(message)
+        .user(u -> u.text(ragPromptTemplate).param("input", message))
         .call()
         .content();
   }

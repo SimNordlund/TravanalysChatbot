@@ -2,7 +2,9 @@ package org.example.amortizationhelper;
 
 import java.io.IOException;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
+import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +25,7 @@ public class ChatController {
     this.chatClient = builder
         .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder()
             .build()))
+        .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
         .defaultSystem("You are a helpful bank-robot-assistant.")
         .build();
   }
@@ -36,6 +39,13 @@ public class ChatController {
         .content();
   }
 
+  @GetMapping("/chat")
+  public String chat(@RequestParam(value = "message") String message) {
+    return chatClient.prompt()
+        .user(message)
+        .call()
+        .content();
+  }
 
   @PostMapping("/upload")
   public String handleFileUpload(

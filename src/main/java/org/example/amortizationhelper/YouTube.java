@@ -1,7 +1,9 @@
 package org.example.amortizationhelper;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
+import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +26,7 @@ public class YouTube {
         .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder()
             .build()))
        // .defaultSystem("You are a helpful bank-robot-assistant. You start each sentence with KEKW") Behöver ej denna om youtube.st fungerar
+        .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
         .build();
   }
 

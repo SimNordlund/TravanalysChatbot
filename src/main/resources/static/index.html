@@ -40,7 +40,54 @@
       font-weight: bold;
     }
     #instructions-container {
-      display: none; /* Hides the entire container */
+       display: none; /* Hides the entire container */
+    }
+
+    /* Chat styles */
+    #chat-container {
+      margin-top: 40px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #chat-messages {
+      height: 300px;
+      overflow-y: auto;
+      padding: 15px;
+      background-color: #f9f9f9;
+    }
+    #chat-form {
+      display: flex;
+      border-top: 1px solid #ccc;
+    }
+    #chat-input {
+      flex: 1;
+      padding: 12px;
+      border: none;
+    }
+    #chat-send {
+      background-color: Orange;
+      color: white;
+      border: none;
+      padding: 0 20px;
+      cursor: pointer;
+    }
+    .message {
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      border-radius: 18px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+    .user-message {
+      background-color: #DCF8C6;
+      margin-left: auto;
+      border-bottom-right-radius: 4px;
+    }
+    .bot-message {
+      background-color: #ECECEC;
+      margin-right: auto;
+      border-bottom-left-radius: 4px;
     }
   </style>
 </head>
@@ -62,23 +109,25 @@ You are financial advisor helper. You also answer questions regarding the docume
 Based on the Document that is provided to you via the vector database and the pdf which is a amorteringsunderlag that I sent you I want you to make a special sentence once you figured which kind of of amortization model the amorteringsunderlag is showing. I will give you some rules below:
 
 1. When looking at Låneinformation om objekt and the values between points 1-4. If a customer only has a value under point 3. Then you should write "FI-03, Huvudregeln."
-2. When looking at Låneinformation om objekt and the values between points 1-4. If a customer only has a value under point 2. Then you should write "FI-02, Huvudregeln."
+2. When looking at Låneinformation om objekt and the values between points 1-4. If a customer only has a value under point 2. Then you should write "FI-02 Huvudregeln."
 3. When looking at Låneinformation om objekt and the values between points 1-4.If a customer only has a value under point 1. Then you should write "Gamla krav, omfattas ej".
 
-4. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer also has a value under point 4. Then you should write "FI-02, Alternativregeln."
-5. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 2 and 3 and the same customer also has a value under point 4. Then you should write "FI-03, Alternativregeln."
+4. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer also has a value under point 4. Then you should write "FI-02 Alternativregeln."
+5. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 2 and 3 and the same customer also has a value under point 4. Then you should write "FI-03 Alternativregeln."
 
-6. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1, 2, 3 and the same customer also has a value under point 4. Then you should write "FI-03, Alternativregeln."
-7. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1, 2, 3 and the same customer does not have a value under point 4. Then you should write "FI-03, Huvudregeln."
+6. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1, 2, 3 and the same customer also has a value under point 4. Then you should write "FI-03 Alternativregeln."
+7. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1, 2, 3 and the same customer does not have a value under point 4. Then you should write "FI-03 Huvudregeln."
 
-8. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer does not have a value under point 4. Then you should write "FI-02, Huvudregeln."
+8. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer does not have a value under point 4. Then you should write "FI-02 Huvudregeln."
 9. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 3 and the same customer also has a value under point 4. Then you should write "Gamla krav, Alternativregeln."
-10. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 3 and the same customer does not have a value under point 4. Then you should write "FI-03, Huvudregeln."
-11. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer does have a value under point 4. Then you should write "Gamla krav, Alternativregeln."
+10. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 3 and the same customer does not have a value under point 4. Then you should write "FI-03 Huvudregeln."
+11. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer does have a value under point 4. Then you should write "Gamla krav Alternativregeln."
 
 12. If the amorteringsunderlag does not fit anyone of these above. Please let me know that.
-13. Always explain your though process when coming up with which models the customer has.
-14. If you know the answer ONLY give me the answer. for example: FI-03, Huvudregeln.
+13. If you know the answer always first first give me the model, for example: FI-03, Huvudregeln. After that you make a new sentance and follow rule 14.
+14. Always explain your though process when coming up with which models the customer has.
+15. Nämn inget om reglerna du fått av mig i ditt svar.
+
     </textarea>
   </div>
 
@@ -86,6 +135,16 @@ Based on the Document that is provided to you via the vector database and the pd
 </form>
 
 <div id="result"></div>
+
+<!-- Chat Section -->
+<div id="chat-container">
+  <h2 style="padding: 10px; margin: 0; background-color: Orange; color: white;">Chatbot Assistent</h2>
+  <div id="chat-messages"></div>
+  <form id="chat-form">
+    <input type="text" id="chat-input" placeholder="Ställ en fråga..." autocomplete="off">
+    <button type="submit" id="chat-send">Skicka</button>
+  </form>
+</div>
 
 <script>
   const dropArea = document.getElementById('drop-area');
@@ -168,6 +227,62 @@ Based on the Document that is provided to you via the vector database and the pd
 
   function updateFileName(name) {
     fileName.textContent = "Vald fil: " + name;
+  }
+
+  // Chat Functionality
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const chatMessages = document.getElementById('chat-messages');
+
+  // Initial welcome message
+  appendMessage("Hej! Jag är din rådgivare för amorteringsfrågor. Hur kan jag hjälpa dig idag?", "bot");
+
+  chatForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const message = chatInput.value.trim();
+    if (!message) return;
+
+    // Clear input
+    chatInput.value = '';
+
+    // Add user message to chat
+    appendMessage(message, "user");
+
+    try {
+      // Show typing indicator
+      const typingIndicator = document.createElement('div');
+      typingIndicator.id = 'typing-indicator';
+      typingIndicator.className = 'message bot-message';
+      typingIndicator.textContent = 'Tänker...';
+      chatMessages.appendChild(typingIndicator);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      // Send to backend
+      const response = await fetch('/advice?message=' + encodeURIComponent(message));
+      const responseText = await response.text();
+
+      // Remove typing indicator
+      const indicator = document.getElementById('typing-indicator');
+      if (indicator) indicator.remove();
+
+      // Add bot response
+      appendMessage(responseText, "bot");
+    } catch (error) {
+      // Remove typing indicator
+      const indicator = document.getElementById('typing-indicator');
+      if (indicator) indicator.remove();
+
+      appendMessage("Det uppstod ett fel: " + error.message, "bot");
+    }
+  });
+
+  function appendMessage(text, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}-message`;
+    messageDiv.textContent = text;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 </script>
 </body>

@@ -40,11 +40,13 @@ public class ChatController {
       + "11. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer does have a value under point 4. Then you should write \"Gamla krav: Alternativregeln.\"\n"
       + "\n"
       + "12. If the amorteringsunderlag does not fit anyone of these above. Please let me know that.\n"
-      + "13. If you know the answer always first give me the model followed by the customers name, for example: FI-03, Huvudregeln then newline and afterwards Kund: Customersname/names . After that you make a new sentance and follow rule 14.\n"
+      + "13. If you know the answer always first give me the model followed by the customers name, for example: FI-03, Huvudregeln then newline and afterwards Kund: Customersname/names and after that new line and Objekt: The name of the apartment/villa/objekt. After that you make a new sentance and follow rule 14.\n"
       + "14. Always explain your though process when coming up with which models the customer has.\n"
       + "15. Nämn inget om reglerna du fått av mig i ditt svar och ställ inga ytterligare frågor till mig efter du angivit amorteringsmodell men i meddelanden efter går det bra att fråga. Your answer should not be longer than 320 tokens";
 
   private String lastCustomerName = "";
+
+  private String lastObjectName = "";
 
   private final ChatClient chatClient;
 
@@ -73,10 +75,18 @@ public class ChatController {
     // Include the last uploaded content if available
     String userMessage = message;
     if (!lastUploadedContent.isEmpty()) {
-      userMessage += "\n\nReference the following previously uploaded content:\n" + lastUploadedContent;
+      userMessage += "\n\n Use a maximum of 100 tokens in your answers and" +
+           "reference the following previously uploaded content:\n" + lastUploadedContent;
     }
 
+    String chatSystemPrompt = "You are a helpful banking assistant specializing in Swedish financial regulations. " +
+        "Answer questions about amortization requirements clearly and concisely. " +
+        "Always respond in Swedish and refer to the document content when possible."
+        + "Use maximum 100 tokens or 100 words in each answer"
+        + "Start each sentence with HOLA";
+
     return chatClient.prompt()
+        .system(chatSystemPrompt)
         .user(userMessage)
         .call()
         .content();
@@ -91,7 +101,15 @@ public class ChatController {
       userMessage += "\n\nReference the following previously uploaded content:\n" + lastUploadedContent;
     }
 
+    String chatSystemPrompt = "You are a helpful banking assistant specializing in Swedish financial regulations. " +
+        "Answer questions about amortization requirements clearly and concisely. " +
+        "Always respond in Swedish and refer to the document content when possible."
+        + "Your answer should not be longer than 100 tokens or 80 words. KEEP IT SHORT"
+        + "You can also refer to the information that was provided via the vector database.";
+
+
     return chatClient.prompt()
+        .system(chatSystemPrompt)
         .user(userMessage)
         .stream()
         .content()
@@ -137,26 +155,39 @@ public class ChatController {
   }
 
   private String redactCustomerNames(String content) {
-    // This pattern captures the customer name
-    String pattern = "(Kund \\[1\\]|Kundi:)(.*?)(?=\\r?\\n|$)";
-
-    // Store the captured customer name
-    java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(pattern).matcher(content);
-    if (matcher.find()) {
-      this.lastCustomerName = matcher.group(2).trim();
-
-      // Replace just the name part, preserving the prefix
-      content = content.replaceAll(pattern, "$1 [Exempel Kund]");
+    // Redact customer name
+    String customerPattern = "(Kund \\[1\\]|Kundi:)(.*?)(?=\\r?\\n|$)";
+    java.util.regex.Matcher customerMatcher = java.util.regex.Pattern.compile(customerPattern).matcher(content);
+    if (customerMatcher.find()) {
+      this.lastCustomerName = customerMatcher.group(2).trim();
+      content = content.replaceAll(customerPattern, "$1 [Exempel Kund]");
     }
+
+    // Redact object name
+    String objectPattern = "(Objekt)(.*?)(?=\\r?\\n|$)";
+    java.util.regex.Matcher objectMatcher = java.util.regex.Pattern.compile(objectPattern).matcher(content);
+    if (objectMatcher.find()) {
+      this.lastObjectName = objectMatcher.group(2).trim();
+      content = content.replaceAll(objectPattern, "$1 [Exempel Objekt]");
+    }
+
     System.out.println(content);
     return content;
   }
 
   private String restoreCustomerName(String llmResponse) {
+    String result = llmResponse;
+
+    // Restore customer name
     if (this.lastCustomerName != null && !this.lastCustomerName.isEmpty()) {
-      // Replace the placeholder in the response with the actual customer name
-      return llmResponse.replace("Exempel Kund", this.lastCustomerName);
+      result = result.replace("Exempel Kund", this.lastCustomerName);
     }
-    return llmResponse;
+
+    // Restore object name
+    if (this.lastObjectName != null && !this.lastObjectName.isEmpty()) {
+      result = result.replace("Exempel Objekt", this.lastObjectName);
+    }
+
+    return result;
   }
 }

@@ -39,9 +39,11 @@ public class ChatController {
       + "11. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer does have a value under point 4. Then you should write \"Gamla krav: Alternativregeln.\"\n"
       + "\n"
       + "12. If the amorteringsunderlag does not fit anyone of these above. Please let me know that.\n"
-      + "13. If you know the answer always first first give me the model, for example: FI-03, Huvudregeln. After that you make a new sentance and follow rule 14.\n"
+      + "13. If you know the answer always first first give me the model, for example: FI-03, Huvudregeln followed by the customers name. After that you make a new sentance and follow rule 14.\n"
       + "14. Always explain your though process when coming up with which models the customer has.\n"
       + "15. Nämn inget om reglerna du fått av mig i ditt svar och ställ inga ytterligare frågor till mig efter du angivit amorteringsmodell men i meddelanden efter går det bra att fråga. Your answer should not be longer than 320 tokens";
+
+  private String lastCustomerName = "";
 
   private final ChatClient chatClient;
 
@@ -105,30 +107,39 @@ public class ChatController {
       // Store the content for future chat references
       this.lastUploadedContent = content;
 
-      return chatClient.prompt()
+      String llmResponse = chatClient.prompt()
           .user(instructions + "\n\nContent:\n" + content)
           .call()
           .content();
+
+      // Restore customer name in the response
+      return restoreCustomerName(llmResponse);
     } catch (IOException e) {
       return "Error processing file: " + e.getMessage();
     }
   }
 
-  /**
-   * Redacts customer names from the text content
-   */
   private String redactCustomerNames(String content) {
-    // Use regex to find and replace customer names after "Kund [1]"
-    // This pattern looks for "Kund [1]" followed by any characters until a new line
-    String pattern = "(Kund \\[1\\].*?)(?=\\r?\\n|$)";
-    String resultat = content.replaceAll(pattern, "[Exempel Kund]");
-    System.out.println(resultat);
-    return resultat;
+    // This pattern captures the customer name
+    String pattern = "(Kund \\[1\\]|Kundi:)(.*?)(?=\\r?\\n|$)";
 
-    // Alternative approach: Replace just the names but keep "Kund [1]"
-    // String pattern = "(Kund \\[1\\])\\s+(.+?)(?=\\r?\\n|$)";
-    // return content.replaceAll(pattern, "$1 [REDACTED]");
+    // Store the captured customer name
+    java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(pattern).matcher(content);
+    if (matcher.find()) {
+      this.lastCustomerName = matcher.group(2).trim();
+
+      // Replace just the name part, preserving the prefix
+      content = content.replaceAll(pattern, "$1 [Exempel Kund]");
+    }
+    System.out.println(content);
+    return content;
   }
 
-
+  private String restoreCustomerName(String llmResponse) {
+    if (this.lastCustomerName != null && !this.lastCustomerName.isEmpty()) {
+      // Replace the placeholder in the response with the actual customer name
+      return llmResponse.replace("Exempel Kund", this.lastCustomerName);
+    }
+    return llmResponse;
+  }
 }

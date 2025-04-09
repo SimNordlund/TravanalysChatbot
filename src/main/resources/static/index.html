@@ -310,29 +310,30 @@ Tell me about the amortization model of the customer.
     appendMessage(message, "user");
 
     try {
-      // Show typing indicator
-      const typingIndicator = document.createElement('div');
-      typingIndicator.id = 'typing-indicator';
-      typingIndicator.className = 'message bot-message';
-      typingIndicator.textContent = 'Grubblar...';
-      chatMessages.appendChild(typingIndicator);
+      // Create a loading message
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'message bot-message';
+      loadingDiv.textContent = 'Grubblar...';
+      chatMessages.appendChild(loadingDiv);
       chatMessages.scrollTop = chatMessages.scrollHeight;
 
-      // Send to backend
-      const response = await fetch('/chat?message=' + encodeURIComponent(message));
-      const responseText = await response.text();
+      // Start streaming the response
+      const response = await fetch('/chat-stream?message=' + encodeURIComponent(message));
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
 
-      // Remove typing indicator
-      const indicator = document.getElementById('typing-indicator');
-      if (indicator) indicator.remove();
+      // Replace the loading message with an empty container for the streamed response
+      loadingDiv.textContent = '';
 
-      // Add bot response
-      appendMessage(responseText, "bot");
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value, { stream: true });
+        loadingDiv.textContent += text;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
     } catch (error) {
-      // Remove typing indicator
-      const indicator = document.getElementById('typing-indicator');
-      if (indicator) indicator.remove();
-
       appendMessage("Det uppstod ett fel: " + error.message, "bot");
     }
   });

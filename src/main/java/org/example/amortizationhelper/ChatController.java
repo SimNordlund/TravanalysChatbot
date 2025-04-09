@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.Loader;
+import reactor.core.publisher.Flux;
 
 @RestController
 public class ChatController {
@@ -79,6 +80,22 @@ public class ChatController {
         .user(userMessage)
         .call()
         .content();
+  }
+
+  // Add this new endpoint for streaming responses
+  @GetMapping("/chat-stream")
+  public Flux<String> chatStream(@RequestParam(value = "message") String message) {
+    // Include the last uploaded content if available
+    String userMessage = message;
+    if (!lastUploadedContent.isEmpty()) {
+      userMessage += "\n\nReference the following previously uploaded content:\n" + lastUploadedContent;
+    }
+
+    return chatClient.prompt()
+        .user(userMessage)
+        .stream()
+        .content()
+        .map(this::restoreCustomerName);
   }
 
   @PostMapping("/upload")

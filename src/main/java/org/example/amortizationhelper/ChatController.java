@@ -84,7 +84,6 @@ public class ChatController {
       @RequestParam("file") MultipartFile file,
       @RequestParam(value = "instructions", defaultValue = "Analyze this content") String instructions) {
     try {
-      // Existing file validation code...
       String content;
       String filename = file.getOriginalFilename();
 
@@ -93,10 +92,14 @@ public class ChatController {
         try (PDDocument document = Loader.loadPDF(file.getInputStream().readAllBytes())) {
           PDFTextStripper stripper = new PDFTextStripper();
           content = stripper.getText(document);
+
+          // Redact customer names
+          content = redactCustomerNames(content);
         }
       } else {
         // For non-PDF files, use the existing text approach
         content = new String(file.getBytes());
+        content = redactCustomerNames(content);
       }
 
       // Store the content for future chat references
@@ -109,6 +112,22 @@ public class ChatController {
     } catch (IOException e) {
       return "Error processing file: " + e.getMessage();
     }
+  }
+
+  /**
+   * Redacts customer names from the text content
+   */
+  private String redactCustomerNames(String content) {
+    // Use regex to find and replace customer names after "Kund [1]"
+    // This pattern looks for "Kund [1]" followed by any characters until a new line
+    String pattern = "(Kund \\[1\\].*?)(?=\\r?\\n|$)";
+    String resultat = content.replaceAll(pattern, "[Exempel Kund]");
+    System.out.println(resultat);
+    return resultat;
+
+    // Alternative approach: Replace just the names but keep "Kund [1]"
+    // String pattern = "(Kund \\[1\\])\\s+(.+?)(?=\\r?\\n|$)";
+    // return content.replaceAll(pattern, "$1 [REDACTED]");
   }
 
 

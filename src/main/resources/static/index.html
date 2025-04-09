@@ -39,6 +39,9 @@
       margin-top: 10px;
       font-weight: bold;
     }
+    #instructions-container {
+      display: none; /* Hides the entire container */
+    }
   </style>
 </head>
 <body>
@@ -52,7 +55,7 @@
     <div class="file-name" id="file-name"></div>
   </div>
 
-  <div>
+  <div id="instructions-container">
     <label for="instructions">Prompt:</label>
     <textarea id="instructions" name="instructions" rows="4" cols="50">Answer in SWEDISH. I want you to give me the following values:
 You are financial advisor helper. You also answer questions regarding the documents that is provided as amorteringsunderlag and the document you got via the vector database.

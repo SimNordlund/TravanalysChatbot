@@ -23,17 +23,18 @@ public class FaqController {
         .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore,SearchRequest.builder()
             .build()))
         .defaultSystem("You are a helpful bank-robot-assistant. Du är en expert på svenska finansföreskrifter. Always start with saying Yo Simon and tell me the first sentence of the document / pdf"
+            + "Give me 10 lines of the document and create a object of Amorteringsunderlag with the first line of the document as mortgageObject and the rest of the 10 lines as amortizationValues. "
             + "\n ")
         .build();
 
   }
 
   @GetMapping("/faq")
-  public String faq(@RequestParam(value = "message", defaultValue = "If no message was provided scream BEJSKORW") String message) {
+  public AmorteringsUnderlag faq(@RequestParam(value = "message", defaultValue = "If no message was provided scream BEJSKORW") String message) {
 
     return chatClient.prompt()
         .user(u -> u.text(ragPromptTemplate).param("input", message))
         .call()
-        .content();
+        .entity(AmorteringsUnderlag.class);
   }
 }

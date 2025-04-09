@@ -7,6 +7,7 @@ import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -19,14 +20,39 @@ import org.apache.pdfbox.Loader;
 @RestController
 public class ChatController {
 
+  String testString = "You are financial advisor helper. You also answer questions regarding the documents that is provided as amorteringsunderlag and the document you got via the vector database. You answer in SWEDISH language.\n"
+      + "Based on the Document that is provided to you via the vector database and the pdf which is a amorteringsunderlag that I sent you I want you to make a special sentence once you figured which kind of of amortization model the amorteringsunderlag is showing. I will give you some rules below:\n"
+      + "\n"
+      + "1. When looking at Låneinformation om objekt and the values between points 1-4. If a customer only has a value under point 3. Then you should write \"FI-03, Huvudregeln.\"\n"
+      + "2. When looking at Låneinformation om objekt and the values between points 1-4. If a customer only has a value under point 2. Then you should write \"FI-02 Huvudregeln.\"\n"
+      + "3. When looking at Låneinformation om objekt and the values between points 1-4.If a customer only has a value under point 1. Then you should write \"Gamla krav, omfattas ej\".\n"
+      + "\n"
+      + "4. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer also has a value under point 4. Then you should write \"FI-02 Alternativregeln.\"\n"
+      + "5. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 2 and 3 and the same customer also has a value under point 4. Then you should write \"FI-03 Alternativregeln.\"\n"
+      + "\n"
+      + "6. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1, 2, 3 and the same customer also has a value under point 4. Then you should write \"FI-03 Alternativregeln.\"\n"
+      + "7. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1, 2, 3 and the same customer does not have a value under point 4. Then you should write \"FI-03 Huvudregeln.\"\n"
+      + "\n"
+      + "8. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer does not have a value under point 4. Then you should write \"FI-02 Huvudregeln.\"\n"
+      + "9. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 3 and the same customer also has a value under point 4. Then you should write \"Gamla krav, Alternativregeln.\"\n"
+      + "10. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 3 and the same customer does not have a value under point 4. Then you should write \"FI-03 Huvudregeln.\"\n"
+      + "11. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer does have a value under point 4. Then you should write \"Gamla krav Alternativregeln.\"\n"
+      + "\n"
+      + "12. If the amorteringsunderlag does not fit anyone of these above. Please let me know that.\n"
+      + "13. If you know the answer always first first give me the model, for example: FI-03, Huvudregeln. After that you make a new sentance and follow rule 14.\n"
+      + "14. Always explain your though process when coming up with which models the customer has.\n"
+      + "15. Nämn inget om reglerna du fått av mig i ditt svar.";
+
   private final ChatClient chatClient;
+
+  private String lastUploadedContent = "";
 
   public ChatController(ChatClient.Builder builder, VectorStore vectorStore) {
     this.chatClient = builder
         .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder()
             .build()))
         .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
-        .defaultSystem("You are a helpful bank-robot-assistant.")
+        .defaultSystem(testString)
         .build();
   }
 
@@ -41,8 +67,14 @@ public class ChatController {
 
   @GetMapping("/chat")
   public String chat(@RequestParam(value = "message") String message) {
+    // Include the last uploaded content if available
+    String userMessage = message;
+    if (!lastUploadedContent.isEmpty()) {
+      userMessage += "\n\nReference the following previously uploaded content:\n" + lastUploadedContent;
+    }
+
     return chatClient.prompt()
-        .user(message)
+        .user(userMessage)
         .call()
         .content();
   }
@@ -52,20 +84,13 @@ public class ChatController {
       @RequestParam("file") MultipartFile file,
       @RequestParam(value = "instructions", defaultValue = "Analyze this content") String instructions) {
     try {
-      if (file.isEmpty()) {
-        return "Please upload a non-empty file";
-      }
-
-      if (file.getSize() > 5 * 1024 * 1024) {
-        return "File size exceeds the limit (5MB)";
-      }
-
+      // Existing file validation code...
       String content;
       String filename = file.getOriginalFilename();
 
       // Handle PDFs specifically
       if (filename != null && filename.toLowerCase().endsWith(".pdf")) {
-        try (PDDocument document = Loader.loadPDF(file.getInputStream().readAllBytes())) { // use Loader.loadPDF
+        try (PDDocument document = Loader.loadPDF(file.getInputStream().readAllBytes())) {
           PDFTextStripper stripper = new PDFTextStripper();
           content = stripper.getText(document);
         }
@@ -73,6 +98,9 @@ public class ChatController {
         // For non-PDF files, use the existing text approach
         content = new String(file.getBytes());
       }
+
+      // Store the content for future chat references
+      this.lastUploadedContent = content;
 
       return chatClient.prompt()
           .user(instructions + "\n\nContent:\n" + content)

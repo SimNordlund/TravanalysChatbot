@@ -41,7 +41,7 @@ public class ChatController {
       + "12. If the amorteringsunderlag does not fit anyone of these above. Please let me know that.\n"
       + "13. If you know the answer always first first give me the model, for example: FI-03, Huvudregeln. After that you make a new sentance and follow rule 14.\n"
       + "14. Always explain your though process when coming up with which models the customer has.\n"
-      + "15. Nämn inget om reglerna du fått av mig i ditt svar och ställ inga ytterligare frågor till mig efter du angivit amorteringsmodell men i meddelanden efter går det bra att fråga";
+      + "15. Nämn inget om reglerna du fått av mig i ditt svar och ställ inga ytterligare frågor till mig efter du angivit amorteringsmodell men i meddelanden efter går det bra att fråga. Your answer should not be longer than 320 tokens";
 
   private final ChatClient chatClient;
 

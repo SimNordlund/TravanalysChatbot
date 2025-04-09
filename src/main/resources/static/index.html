@@ -39,22 +39,91 @@
       margin-top: 10px;
       font-weight: bold;
     }
+       /* Add these styles to your existing CSS */
+     .container {
+       display: flex;
+       flex-wrap: wrap;
+       margin-top: 20px;
+       gap: 20px;
+     }
+
+    .loading-text {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      font-size: 30px;
+      color: #666;
+    }
+
     #instructions-container {
        display: none; /* Hides the entire container */
     }
 
+    #result-content p, #result-content div {
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    #chat-messages .message {
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    /* Enhance spacing for line breaks */
+    #result-content br {
+      display: block;
+      content: "";
+      margin-top: 12px;
+    }
+
+    #result {
+      flex: 1;
+      min-width: 300px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    #result h2 {
+      padding: 12px;
+      margin: 0;
+      border-top-left-radius: 11px;
+      border-top-right-radius: 11px;
+    }
+
+    #result-content {
+      padding: 15px;
+      background-color: #f9f9f9;
+      min-height: 300px;
+      overflow-y: auto;
+      line-height: 1.5;
+      font-family: inherit;
+    }
     /* Chat styles */
     #chat-container {
-      margin-top: 40px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+      flex: 1;
+      min-width: 300px;
+      margin-top: 0;
+      border: 1px solid #ddd;
+      border-radius: 12px;
       overflow: hidden;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    #chat-container h2 {
+      padding: 12px;
+      margin: 0;
+      background-color: Orange;
+      color: white;
+      border-top-left-radius: 11px;
+      border-top-right-radius: 11px;
     }
     #chat-messages {
       height: 300px;
       overflow-y: auto;
       padding: 15px;
       background-color: #f9f9f9;
+      border-bottom: 1px solid #eee;
     }
     #chat-form {
       display: flex;
@@ -113,6 +182,7 @@ Tell me about the amortization model of the customer.
   <button type="submit">Ladda upp och analysera</button>
 </form>
 
+<div class="container">
 <div id="result"></div>
 
 <!-- Chat Section -->
@@ -123,6 +193,7 @@ Tell me about the amortization model of the customer.
     <input type="text" id="chat-input" placeholder="Ställ en fråga..." autocomplete="off">
     <button type="submit" id="chat-send">Skicka</button>
   </form>
+</div>
 </div>
 
 <script>
@@ -160,7 +231,7 @@ Tell me about the amortization model of the customer.
 
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
-    result.textContent = "Tänker...";
+    result.innerHTML = '<div class="loading-text">Analyserar...</div>';
 
     const formData = new FormData(form);
 
@@ -171,9 +242,9 @@ Tell me about the amortization model of the customer.
       });
 
       const text = await response.text();
-      result.innerHTML = '<h2>Resultat på analys:</h2><div>' + text.replace(/\n/g, '<br>') + '</div>';
+      result.innerHTML = '<h2>Resultat på analys</h2><div id="result-content">' + text.replace(/\n/g, '<br>') + '</div>';
     } catch (error) {
-      result.textContent = "Error: " + error.message;
+      result.innerHTML = '<div class="loading-text">Error: ' + error.message + '</div>';
     }
   });
 
@@ -233,7 +304,7 @@ Tell me about the amortization model of the customer.
       const typingIndicator = document.createElement('div');
       typingIndicator.id = 'typing-indicator';
       typingIndicator.className = 'message bot-message';
-      typingIndicator.textContent = 'Tänker...';
+      typingIndicator.textContent = 'Grubblar...';
       chatMessages.appendChild(typingIndicator);
       chatMessages.scrollTop = chatMessages.scrollHeight;
 

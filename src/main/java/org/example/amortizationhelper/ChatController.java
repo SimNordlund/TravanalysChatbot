@@ -7,7 +7,6 @@ import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -92,7 +91,7 @@ public class ChatController {
         .content();
   }
 
-  // Add this new endpoint for streaming responses
+
   @GetMapping("/chat-stream")
   public Flux<String> chatStream(@RequestParam(value = "message") String message) {
     // Include the last uploaded content if available
@@ -104,8 +103,8 @@ public class ChatController {
     String chatSystemPrompt = "You are a helpful banking assistant specializing in Swedish financial regulations. " +
         "Answer questions about amortization requirements clearly and concisely. " +
         "Always respond in Swedish and refer to the document content when possible."
-        + "Your answer should not be longer than 100 tokens or 80 words. KEEP IT SHORT"
-        + "You can also refer to the information that was provided via the vector database.";
+        + "You can also refer to the information that was provided via the vector database, the so called Ett skärpt amorteringskrav för hushåll med höga skuldkvoter"
+        + "Try to use no more than 300 tokens in your answers";
 
 
     return chatClient.prompt()

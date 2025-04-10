@@ -164,7 +164,7 @@ public class ChatController {
     java.util.regex.Matcher customerMatcher = java.util.regex.Pattern.compile(customerPattern).matcher(content);
     if (customerMatcher.find()) {
       this.lastCustomerName = customerMatcher.group(2).trim();
-      content = content.replaceAll(customerPattern, "$1 [Bo Loansen]");
+      content = content.replaceAll(customerPattern, "$1 [Exempel Kund]");
     }
 
     // Redact object name
@@ -172,7 +172,7 @@ public class ChatController {
     java.util.regex.Matcher objectMatcher = java.util.regex.Pattern.compile(objectPattern).matcher(content);
     if (objectMatcher.find()) {
       this.lastObjectName = objectMatcher.group(2).trim();
-      content = content.replaceAll(objectPattern, "$1 [Brf Belåningsgrad lgh 1337]");
+      content = content.replaceAll(objectPattern, "$1 [Exempel Objekt]");
     }
 
     log.info("Ghosted: {}", content);
@@ -184,12 +184,12 @@ public class ChatController {
 
     // Restore customer name
     if (this.lastCustomerName != null && !this.lastCustomerName.isEmpty()) {
-      result = result.replace("Bo Loansen", this.lastCustomerName);
+      result = result.replace("Exempel Kund", this.lastCustomerName);
     }
 
     // Restore object name
     if (this.lastObjectName != null && !this.lastObjectName.isEmpty()) {
-      result = result.replace("Brf Belåningsgrad lgh 1337", this.lastObjectName);
+      result = result.replace("Exempel Objekt", this.lastObjectName);
     }
 
     return result;

@@ -160,7 +160,7 @@ public class ChatController {
 
   private String redactCustomerNames(String content) {
     // Redact customer name
-    String customerPattern = "(Kund \\[1\\]|Kundi:)(.*?)(?=\\r?\\n|$)";
+    String customerPattern = "(Kund \\[1\\]|Kund:)(.*?)(?=\\r?\\n|$)";
     java.util.regex.Matcher customerMatcher = java.util.regex.Pattern.compile(customerPattern).matcher(content);
     if (customerMatcher.find()) {
       this.lastCustomerName = customerMatcher.group(2).trim();

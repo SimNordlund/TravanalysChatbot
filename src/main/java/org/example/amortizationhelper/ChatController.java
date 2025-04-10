@@ -1,6 +1,8 @@
 package org.example.amortizationhelper;
 
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
@@ -46,6 +48,7 @@ public class ChatController {
   private String lastCustomerName = "";
 
   private String lastObjectName = "";
+  private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
   private final ChatClient chatClient;
 
@@ -159,7 +162,7 @@ public class ChatController {
     java.util.regex.Matcher customerMatcher = java.util.regex.Pattern.compile(customerPattern).matcher(content);
     if (customerMatcher.find()) {
       this.lastCustomerName = customerMatcher.group(2).trim();
-      content = content.replaceAll(customerPattern, "$1 [Exempel Kund]");
+      content = content.replaceAll(customerPattern, "$1 [Bo Loansen]");
     }
 
     // Redact object name
@@ -167,10 +170,10 @@ public class ChatController {
     java.util.regex.Matcher objectMatcher = java.util.regex.Pattern.compile(objectPattern).matcher(content);
     if (objectMatcher.find()) {
       this.lastObjectName = objectMatcher.group(2).trim();
-      content = content.replaceAll(objectPattern, "$1 [Exempel Objekt]");
+      content = content.replaceAll(objectPattern, "$1 [Brf Belåningsgrad lgh 1337]");
     }
 
-    System.out.println(content);
+    log.info("Ghosted: {}", content);
     return content;
   }
 
@@ -179,12 +182,12 @@ public class ChatController {
 
     // Restore customer name
     if (this.lastCustomerName != null && !this.lastCustomerName.isEmpty()) {
-      result = result.replace("Exempel Kund", this.lastCustomerName);
+      result = result.replace("Bo Loansen", this.lastCustomerName);
     }
 
     // Restore object name
     if (this.lastObjectName != null && !this.lastObjectName.isEmpty()) {
-      result = result.replace("Exempel Objekt", this.lastObjectName);
+      result = result.replace("Brf Belåningsgrad lgh 1337", this.lastObjectName);
     }
 
     return result;

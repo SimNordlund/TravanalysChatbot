@@ -1,7 +1,6 @@
 package org.example.amortizationhelper.Entity;
 
-import java.util.List;
-
-public record AmorteringsUnderlag(String mortgageObject, List<String> amortizationValues) {
-
-}
+public record AmorteringsUnderlag(
+    String mortgageObject,
+    String amorteringsgrundandeVarde, String amorteringsgrundandeSkuld,
+    String datumForAmorteringsgrundandeVarde) { }

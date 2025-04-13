@@ -1,13 +1,15 @@
 package org.example.amortizationhelper.Controller;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import org.example.amortizationhelper.Entity.AmorteringsUnderlag;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
-import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -15,31 +17,43 @@ import org.springframework.web.bind.annotation.RequestParam;
 ---
 JUST FOR TESTING PURPOSES
 TESTING OF STRUCTURED OUTPUTS AS AN ENTITY
+NOT USED IN THE APPLICATION
 ----
 */
 
 @RestController
 public class StructuredOutputController {
-  @Value("classpath:/prompts/rag-prompt-template.st")
+  @Value("classpath:/prompts/strucuredOutputPrompt.st")
   private Resource ragPromptTemplate;
 
   private final ChatClient chatClient;
 
-  public StructuredOutputController(ChatClient.Builder builder, VectorStore vectorStore) {
+  public StructuredOutputController(ChatClient.Builder builder) {
     this.chatClient = builder
-        .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore,SearchRequest.builder()
-            .build()))
-        .defaultSystem("You are a helpful bank-robot-assistant. Du är en expert på svenska finansföreskrifter."
-            + "Give me 10 lines of the document and create a object of Amorteringsunderlag with the first line of the document as mortgageObject and the rest of the 10 lines as amortizationValues")
+        .defaultSystem("You are a helpful banking assistant specializing in Swedish financial regulations. " +
+            "Answer questions about amortization requirements clearly and concisely. " +
+            "Always respond in Swedish. ")
         .build();
   }
 
   @GetMapping("/structuredData")
-  public AmorteringsUnderlag structuredOutput(@RequestParam(value = "message", defaultValue = "If no message was provided scream salami") String message) {
+  public AmorteringsUnderlag structuredOutput(@RequestParam(value = "message", defaultValue = "") String message) {
+      String pdfContent = extractPdfContent();
 
-    return chatClient.prompt()
-        .user(u -> u.text(ragPromptTemplate).param("input", message))
-        .call()
-        .entity(AmorteringsUnderlag.class);
+      return chatClient.prompt()
+          .system(ragPromptTemplate)
+          .user(pdfContent)
+          .call()
+          .entity(AmorteringsUnderlag.class);
+  }
+
+  private String extractPdfContent() {
+    FileSystemResource pdfResource = new FileSystemResource("src/main/resources/docs/AU123.pdf");
+    PagePdfDocumentReader pdfReader = new PagePdfDocumentReader(pdfResource);
+    List<Document> documents = pdfReader.get();
+
+    return documents.stream()
+        .map(Document::getText)
+        .collect(Collectors.joining("\n\n"));
   }
 }

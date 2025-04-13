@@ -44,12 +44,10 @@ public class RagConfiguration {
     } else {
       log.info("Vector Store File Does Not Exist, loading documents");
 
-      // Use PDF reader instead of TextReader
       PagePdfDocumentReader pdfReader = new PagePdfDocumentReader(pdfResource);
       List<Document> documents = pdfReader.get();
 
       for (Document doc : documents) {
-        // doc.getMetadata() returns a Map<String, String>
         doc.getMetadata().put("filename", "AmorteringsunderlagSNOR.pdf");
       }
 

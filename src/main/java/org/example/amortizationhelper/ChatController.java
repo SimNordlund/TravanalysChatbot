@@ -27,7 +27,7 @@ public class ChatController {
       + "\n"
       + "1. When looking at Låneinformation om objekt and the values between points 1-4. If a customer only has a value under point 3. Then you should write \"FI-03: Huvudregeln.\"\n"
       + "2. When looking at Låneinformation om objekt and the values between points 1-4. If a customer only has a value under point 2. Then you should write \"FI-02: Huvudregeln.\"\n"
-      + "3. When looking at Låneinformation om objekt and the values between points 1-4.If a customer only has a value under point 1. Then you should write \"Gamla krav: Omfattas ej.\"\n"
+      + "3. When looking at Låneinformation om objekt and the values between points 1-4. If a customer only has a value under point 1. Then you should write \"Gamla krav: Omfattas ej.\"\n"
       + "\n"
       + "4. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 1 and 2 and the same customer also has a value under point 4. Then you should write \"Gamla krav: Alternativregeln.\"\n"
       + "5. When looking at Låneinformation om objekt and the values between points 1-4. If a customer has a value under point 2 and 3 and the same customer also has a value under point 4. Then you should write \"FI-02: Alternativregeln.\"\n"
@@ -73,32 +73,8 @@ public class ChatController {
         .content();
   }
 
-  @GetMapping("/chat")
-  public String chat(@RequestParam(value = "message") String message) {
-    // Include the last uploaded content if available
-    String userMessage = message;
-    if (!lastUploadedContent.isEmpty()) {
-      userMessage += "\n\n Use a maximum of 100 tokens in your answers and" +
-           "reference the following previously uploaded content:\n" + lastUploadedContent;
-    }
-
-    String chatSystemPrompt = "You are a helpful banking assistant specializing in Swedish financial regulations. " +
-        "Answer questions about amortization requirements clearly and concisely. " +
-        "Always respond in Swedish and refer to the document content when possible."
-        + "Use maximum 100 tokens or 100 words in each answer"
-        + "Start each sentence with HOLA";
-
-    return chatClient.prompt()
-        .system(chatSystemPrompt)
-        .user(userMessage)
-        .call()
-        .content();
-  }
-
-
   @GetMapping("/chat-stream")
   public Flux<String> chatStream(@RequestParam(value = "message") String message) {
-    // Include the last uploaded content if available
     String userMessage = message;
     if (!lastUploadedContent.isEmpty()) {
       userMessage += "\n\nReference the following previously uploaded content:\n" + lastUploadedContent;
@@ -128,22 +104,18 @@ public class ChatController {
       String content;
       String filename = file.getOriginalFilename();
 
-      // Handle PDFs specifically
       if (filename != null && filename.toLowerCase().endsWith(".pdf")) {
         try (PDDocument document = Loader.loadPDF(file.getInputStream().readAllBytes())) {
           PDFTextStripper stripper = new PDFTextStripper();
           content = stripper.getText(document);
 
-          // Redact customer names
           content = redactCustomerNames(content);
         }
       } else {
-        // For non-PDF files, use the existing text approach
         content = new String(file.getBytes());
         content = redactCustomerNames(content);
       }
 
-      // Store the content for future chat references
       this.lastUploadedContent = content;
 
       String llmResponse = chatClient.prompt()
@@ -151,7 +123,6 @@ public class ChatController {
           .call()
           .content();
 
-      // Restore customer name in the response
       return restoreCustomerName(llmResponse);
     } catch (IOException e) {
       return "Error processing file: " + e.getMessage();
@@ -159,15 +130,14 @@ public class ChatController {
   }
 
   private String redactCustomerNames(String content) {
-    // Redact customer name
-    String customerPattern = "(Kund \\[1\\]|Kund:)(.*?)(?=\\r?\\n|$)";
+
+    String customerPattern = "(Kund \\[1\\]|Kundi | Kund)(.*?)(?=\\r?\\n|$)";
     java.util.regex.Matcher customerMatcher = java.util.regex.Pattern.compile(customerPattern).matcher(content);
     if (customerMatcher.find()) {
       this.lastCustomerName = customerMatcher.group(2).trim();
       content = content.replaceAll(customerPattern, "$1 [Exempel Kund]");
     }
 
-    // Redact object name
     String objectPattern = "(Objekt)(.*?)(?=\\r?\\n|$)";
     java.util.regex.Matcher objectMatcher = java.util.regex.Pattern.compile(objectPattern).matcher(content);
     if (objectMatcher.find()) {
@@ -182,16 +152,35 @@ public class ChatController {
   private String restoreCustomerName(String llmResponse) {
     String result = llmResponse;
 
-    // Restore customer name
     if (this.lastCustomerName != null && !this.lastCustomerName.isEmpty()) {
       result = result.replace("Exempel Kund", this.lastCustomerName);
     }
 
-    // Restore object name
     if (this.lastObjectName != null && !this.lastObjectName.isEmpty()) {
       result = result.replace("Exempel Objekt", this.lastObjectName);
     }
 
     return result;
+  }
+
+  @GetMapping("/chat")
+  public String chat(@RequestParam(value = "message") String message) {
+    String userMessage = message;
+    if (!lastUploadedContent.isEmpty()) {
+      userMessage += "\n\n Use a maximum of 100 tokens in your answers and" +
+          "reference the following previously uploaded content:\n" + lastUploadedContent;
+    }
+
+    String chatSystemPrompt = "You are a helpful banking assistant specializing in Swedish financial regulations. " +
+        "Answer questions about amortization requirements clearly and concisely. " +
+        "Always respond in Swedish and refer to the document content when possible."
+        + "Use maximum 100 tokens or 100 words in each answer"
+        + "Start each sentence with HOLA";
+
+    return chatClient.prompt()
+        .system(chatSystemPrompt)
+        .user(userMessage)
+        .call()
+        .content();
   }
 }

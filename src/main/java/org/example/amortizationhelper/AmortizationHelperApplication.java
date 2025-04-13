@@ -9,5 +9,4 @@ public class AmortizationHelperApplication {
   public static void main(String[] args) {
     SpringApplication.run(AmortizationHelperApplication.class, args);
   }
-
 }

@@ -47,21 +47,24 @@ public class ChatController {
 
   @GetMapping("/chat-stream")
   public Flux<String> chatStream(@RequestParam(value = "message") String message) {
+
+    Resource promptResource = resourceLoader.getResource("classpath:/prompts/amortergsunderlagPrompt.st");
+
     String userMessage = message;
     if (!lastUploadedContent.isEmpty()) {
       userMessage += "\n\nReference the following previously uploaded content:\n" + lastUploadedContent;
     }
 
-    String chatSystemPrompt = "You are a helpful banking assistant specializing in Swedish financial regulations. " +
+ /*   String chatSystemPrompt = "You are a helpful banking assistant specializing in Swedish financial regulations. " +
         "Answer questions about amortization requirements clearly and concisely. " +
         "Always respond in Swedish and refer to the document content when possible."
         + "You can also refer to the information that was provided via the vector database, the so called Ett skärpt amorteringskrav för hushåll med höga skuldkvoter"
         + "Never apologize for your answers and never say that you are a AI model. "
-        + "Try to use no more than 300 tokens in your answers";
+        + "Try to use no more than 300 tokens in your answers"; */
 
 
     return chatClient.prompt()
-        .system(chatSystemPrompt)
+        .system(promptResource)
         .user(userMessage)
         .stream()
         .content()

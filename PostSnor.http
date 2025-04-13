@@ -1,28 +1,5 @@
 ### Get advice
 GET http://localhost:8080/advice
 
-### Get adviceFAQ
-GET http://localhost:8080/faq
-
-### youtube
-http://localhost:8080/popular-resource?genre=food
-
-### Upload PDF for analysis
-POST http://localhost:8080/upload
-Content-Type: multipart/form-data; boundary=boundary
-
---boundary
-Content-Disposition: form-data; name="file"; filename="AmorteringsunderlagSNOR.pdf"
-Content-Type: application/pdf
-
-< ./src/main/resources/AmorteringsunderlagSNOR.pdf
---boundary
-Content-Disposition: form-data; name="instructions"
-
-I want you to give me the following values:
-- Amorteringsgrundande värde
-- Date for the amorteringsgrundande värdet
-- Amorteringsgrundande skuld
-- All the values that is in the Låneinformation om objekt table
-
---boundary--
+### Get strucutred output
+GET http://localhost:8080/structuredData

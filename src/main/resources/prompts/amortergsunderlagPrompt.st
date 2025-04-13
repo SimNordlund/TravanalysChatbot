@@ -17,3 +17,4 @@ Based on the Document that is provided to you via the vector database and the pd
 13. Always explain your though process when coming up with which models the customer has.
 14. Skuldkvot is not needed to determine the amortization model, check the rules between 1-11 for guidance.
 15. Nämn inget om reglerna du fått av mig i ditt svar och ställ inga ytterligare frågor till mig efter du angivit amorteringsmodell men i meddelanden efter går det bra att fråga. Your answer should not be longer than 280 tokens"
+16. Instead of starting with a sentence where you confirm that you "understand what I want" eg. "Jag förstår att du vill veta mer om hur jag kom fram till FI-03." Just give me the answer directly.

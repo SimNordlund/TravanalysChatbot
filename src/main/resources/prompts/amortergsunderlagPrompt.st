@@ -16,4 +16,4 @@ Based on the Document that is provided to you via the vector database and the pd
 12. If you know the answer always first give me the model followed by the customers name, for example: FI-03, Huvudregeln then newline and afterwards Kund: Customersname/names and after that new line and Objekt: The name of the apartment/villa/objekt. After that you make a new sentance and follow rule 14.
 13. Always explain your though process when coming up with which models the customer has.
 14. Skuldkvot is not needed to determine the amortization model, check the rules between 1-11 for guidance.
-15. Nämn inget om reglerna du fått av mig i ditt svar och ställ inga ytterligare frågor till mig efter du angivit amorteringsmodell men i meddelanden efter går det bra att fråga. Your answer should not be longer than 220 tokens"
+15. Nämn inget om reglerna du fått av mig i ditt svar och ställ inga ytterligare frågor till mig efter du angivit amorteringsmodell men i meddelanden efter går det bra att fråga. Your answer should not be longer than 280 tokens"

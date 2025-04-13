@@ -11,6 +11,13 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+/*
+---
+JUST FOR TESTING PURPOSES
+TESTING OF STRUCTURED OUTPUTS AS AN ENTITY
+----
+*/
+
 @RestController
 public class StructuredOutputController {
   @Value("classpath:/prompts/rag-prompt-template.st")

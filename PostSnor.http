@@ -5,7 +5,7 @@ GET http://localhost:8080/advice
 GET http://localhost:8080/faq
 
 ### youtube
-http://localhost:8080/popular-resource?genre=Vad heter jag?
+http://localhost:8080/popular-resource?genre=food
 
 ### Upload PDF for analysis
 POST http://localhost:8080/upload

@@ -1,6 +1,7 @@
-package org.example.amortizationhelper;
+package org.example.amortizationhelper.Controller;
 
 import java.io.IOException;
+import org.springframework.core.io.ResourceLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -9,6 +10,7 @@ import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,7 +24,7 @@ import reactor.core.publisher.Flux;
 @RestController
 public class ChatController {
 
-  String testString = "You are financial advisor helper. You also answer questions regarding the documents that is provided as amorteringsunderlag and the document you got via the vector database. You answer in SWEDISH language.\n"
+  String testRules = "You are financial advisor helper. You also answer questions regarding the documents that is provided as amorteringsunderlag and the document you got via the vector database. You answer in SWEDISH language.\n"
       + "Based on the Document that is provided to you via the vector database and the pdf which is a amorteringsunderlag that I sent you I want you to make a special sentence once you figured which kind of of amortization model the amorteringsunderlag is showing. I will give you some rules below:\n"
       + "\n"
       + "1. When looking at Låneinformation om objekt and the values between points 1-4. If a customer only has a value under point 3. Then you should write \"FI-03: Huvudregeln.\"\n"
@@ -46,23 +48,27 @@ public class ChatController {
       + "15. Skuldkvot is not needed to determine the amortization model, check the rules between 1-11 for guidance.\n"
       + "15. Nämn inget om reglerna du fått av mig i ditt svar och ställ inga ytterligare frågor till mig efter du angivit amorteringsmodell men i meddelanden efter går det bra att fråga. Your answer should not be longer than 320 tokens";
 
-  private String lastCustomerName = "";
-
-  private String lastObjectName = "";
   private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
+  private final ResourceLoader resourceLoader;
   private final ChatClient chatClient;
 
+  private String lastCustomerName = "";
+  private String lastObjectName = "";
   private String lastUploadedContent = "";
 
-  public ChatController(ChatClient.Builder builder, VectorStore vectorStore) {
-    this.chatClient = builder
-        .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder()
-            .build()))
-        .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
-        .defaultSystem(testString)
-        .build();
+  public ChatController(ChatClient.Builder builder, VectorStore vectorStore, ResourceLoader resourceLoader) {
+    this.resourceLoader = resourceLoader;
+      Resource ytResource = resourceLoader.getResource("classpath:/prompts/amortergsunderlagPrompt.st");
+
+      this.chatClient = builder
+          .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder()
+              .build()))
+          .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
+          .defaultSystem(ytResource)
+          .build();
   }
+
 
   @GetMapping("/advice")
   public String advice1337(
@@ -129,40 +135,6 @@ public class ChatController {
     }
   }
 
-  private String redactCustomerNames(String content) {
-
-    String customerPattern = "(Kund \\[1\\]|Kundi | Kund)(.*?)(?=\\r?\\n|$)";
-    java.util.regex.Matcher customerMatcher = java.util.regex.Pattern.compile(customerPattern).matcher(content);
-    if (customerMatcher.find()) {
-      this.lastCustomerName = customerMatcher.group(2).trim();
-      content = content.replaceAll(customerPattern, "$1 [Exempel Kund]");
-    }
-
-    String objectPattern = "(Objekt)(.*?)(?=\\r?\\n|$)";
-    java.util.regex.Matcher objectMatcher = java.util.regex.Pattern.compile(objectPattern).matcher(content);
-    if (objectMatcher.find()) {
-      this.lastObjectName = objectMatcher.group(2).trim();
-      content = content.replaceAll(objectPattern, "$1 [Exempel Objekt]");
-    }
-
-    log.info("Ghosted: {}", content);
-    return content;
-  }
-
-  private String restoreCustomerName(String llmResponse) {
-    String result = llmResponse;
-
-    if (this.lastCustomerName != null && !this.lastCustomerName.isEmpty()) {
-      result = result.replace("Exempel Kund", this.lastCustomerName);
-    }
-
-    if (this.lastObjectName != null && !this.lastObjectName.isEmpty()) {
-      result = result.replace("Exempel Objekt", this.lastObjectName);
-    }
-
-    return result;
-  }
-
   @GetMapping("/chat")
   public String chat(@RequestParam(value = "message") String message) {
     String userMessage = message;
@@ -182,5 +154,38 @@ public class ChatController {
         .user(userMessage)
         .call()
         .content();
+  }
+
+  private String redactCustomerNames(String content) {
+    String customerPattern = "(Kund \\[1\\]|Kundi | Kund)(.*?)(?=\\r?\\n|$)";
+    java.util.regex.Matcher customerMatcher = java.util.regex.Pattern.compile(customerPattern).matcher(content);
+    if (customerMatcher.find()) {
+      this.lastCustomerName = customerMatcher.group(2).trim();
+      content = content.replaceAll(customerPattern, "$1 [Exempel Kund]");
+    }
+
+    String objectPattern = "(Objekt)(.*?)(?=\\r?\\n|$)";
+    java.util.regex.Matcher objectMatcher = java.util.regex.Pattern.compile(objectPattern).matcher(content);
+    if (objectMatcher.find()) {
+      this.lastObjectName = objectMatcher.group(2).trim();
+      content = content.replaceAll(objectPattern, "$1 [Exempel Objekt]");
+    }
+
+    log.info("Information from AU sent to the LLM: {}", content);
+    return content;
+  }
+
+  private String restoreCustomerName(String llmResponse) {
+    String result = llmResponse;
+
+    if (this.lastCustomerName != null && !this.lastCustomerName.isEmpty()) {
+      result = result.replace("Exempel Kund", this.lastCustomerName);
+    }
+
+    if (this.lastObjectName != null && !this.lastObjectName.isEmpty()) {
+      result = result.replace("Exempel Objekt", this.lastObjectName);
+    }
+
+    return result;
   }
 }

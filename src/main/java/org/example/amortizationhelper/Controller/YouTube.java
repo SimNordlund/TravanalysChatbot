@@ -1,4 +1,4 @@
-package org.example.amortizationhelper;
+package org.example.amortizationhelper.Controller;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -18,14 +18,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class YouTube {
 
   private final ChatClient chatClient;
-  @Value("classpath:/prompts/youtube.st")
+  @Value("classpath:/prompts/amortergsunderlagPrompt.st")
   private Resource ytPromptResource;
 
   public YouTube(ChatClient.Builder builder, VectorStore vectorStore) {
     this.chatClient = builder
         .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder()
             .build()))
-       // .defaultSystem("You are a helpful bank-robot-assistant. You start each sentence with KEKW") Behöver ej denna om youtube.st fungerar
+       // .defaultSystem("You are a helpful bank-robot-assistant. You start each sentence with KEKW") Behöver ej denna om amortergsunderlagPrompt.st fungerar
         .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
         .build();
   }
@@ -38,7 +38,7 @@ public class YouTube {
         .content();
   }
 
-/*  @GetMapping("/popular")
+  @GetMapping("/popular")
   public String findPopularYouTubersStepOne(@RequestParam(value = "genre", defaultValue = "tech") String genre) {
     String message = """
             List 10 of the most popular YouTubers in {genre} along with their current subscriber counts. If you don't know
@@ -49,5 +49,5 @@ public class YouTube {
         .user(u -> u.text(message).param("genre",genre))
         .call()
         .content();
-  } */
+  }
 }

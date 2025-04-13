@@ -1,5 +1,4 @@
-package org.example.amortizationhelper;
-
+package org.example.amortizationhelper.RagConfig;
 
 import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.context.annotation.Configuration;
@@ -13,10 +12,7 @@ import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.Resource;
-
-
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -33,7 +29,7 @@ public class RagConfiguration {
   private Resource pdfResource;
 
   @Bean
-  SimpleVectorStore simpleVectorStore(EmbeddingModel embeddingModel) throws IOException {
+  SimpleVectorStore simpleVectorStore(EmbeddingModel embeddingModel) {
     var simpleVectorStore = SimpleVectorStore.builder(embeddingModel)
         .build();
 
@@ -48,7 +44,7 @@ public class RagConfiguration {
       List<Document> documents = pdfReader.get();
 
       for (Document doc : documents) {
-        doc.getMetadata().put("filename", "AmorteringsunderlagSNOR.pdf");
+        doc.getMetadata().put("filename", "Finansinspektionen.pdf");
       }
 
       TextSplitter textSplitter = new TokenTextSplitter();
@@ -58,6 +54,7 @@ public class RagConfiguration {
     }
     return simpleVectorStore;
   }
+
   private File getVectorStoreFile() {
     Path path = Paths.get("src", "main", "resources", "data");
     String absolutePath = path.toFile().getAbsolutePath() + "/" + vectorStoreName;

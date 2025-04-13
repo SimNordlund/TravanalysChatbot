@@ -1,6 +1,6 @@
-package org.example.amortizationhelper;
+package org.example.amortizationhelper.Controller;
 
-import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.example.amortizationhelper.Entity.AmorteringsUnderlag;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,13 +12,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
-public class FaqController {
+public class StructuredOutputController {
   @Value("classpath:/prompts/rag-prompt-template.st")
   private Resource ragPromptTemplate;
 
   private final ChatClient chatClient;
 
-  public FaqController(ChatClient.Builder builder, VectorStore vectorStore) {
+  public StructuredOutputController(ChatClient.Builder builder, VectorStore vectorStore) {
     this.chatClient = builder
         .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore,SearchRequest.builder()
             .build()))
@@ -30,7 +30,7 @@ public class FaqController {
   }
 
   @GetMapping("/faq")
-  public AmorteringsUnderlag faq(@RequestParam(value = "message", defaultValue = "If no message was provided scream BEJSKORW") String message) {
+  public AmorteringsUnderlag faq(@RequestParam(value = "message", defaultValue = "If no message was provided scream kekw") String message) {
 
     return chatClient.prompt()
         .user(u -> u.text(ragPromptTemplate).param("input", message))

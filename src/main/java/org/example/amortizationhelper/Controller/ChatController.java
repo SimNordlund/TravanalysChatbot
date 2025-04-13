@@ -65,8 +65,7 @@ public class ChatController {
 
   @PostMapping("/upload")
   public String handleFileUpload(
-      @RequestParam("file") MultipartFile file,
-      @RequestParam(value = "instructions", defaultValue = "Analyze this content") String instructions) {
+      @RequestParam("file") MultipartFile file){
     try {
       String content;
       String filename = file.getOriginalFilename();
@@ -86,7 +85,7 @@ public class ChatController {
       this.lastUploadedContent = content;
 
       String llmResponse = chatClient.prompt()
-          .user(instructions + "\n\nContent:\n" + content)
+          .user("Analyze this content \n\nContent:\n" + content)
           .call()
           .content();
 
@@ -127,7 +126,7 @@ public class ChatController {
   }
 
   private String redactCustomerNames(String content) {
-    String customerPattern = "(Kund \\[1\\]|Kundi | Kund)(.*?)(?=\\r?\\n|$)";
+    String customerPattern = "(Kund \\[1]|Kundi | Kund)(.*?)(?=\\r?\\n|$)";
     java.util.regex.Matcher customerMatcher = java.util.regex.Pattern.compile(customerPattern).matcher(content);
     if (customerMatcher.find()) {
       this.lastCustomerName = customerMatcher.group(2).trim();

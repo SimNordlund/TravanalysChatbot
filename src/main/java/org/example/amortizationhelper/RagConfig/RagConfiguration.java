@@ -17,6 +17,27 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+/**
+ * RagConfiguration is a Spring configuration class
+ * that sets up the RAG (Retrieval-Augmented Generation) system.
+ * It initializes a SimpleVectorStore
+ * and loads documents from a PDF file.
+ * The documents are split into smaller chunks
+ * using a TextSplitter
+ * and stored in the vector store.
+ * If the vector store file already exists,
+ * it loads the existing data
+ * instead of reprocessing the documents.
+ * The class uses a PagePdfDocumentReader
+ * to read the PDF file
+ * and extract the text content.
+ * The vector store file is saved
+ * in the resources/data directory.
+
+ *  IMPORTANT NOTE: You must add your own OpenAI API key or Bedrock key in the application.properties file
+ *  for the embedding model to work. Without a valid key, the vector database creation will fail and the application won't function correctly.
+ */
+
 @Configuration
 public class RagConfiguration {
 

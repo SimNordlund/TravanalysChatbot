@@ -21,6 +21,18 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.Loader;
 import reactor.core.publisher.Flux;
 
+/**
+ * IMPORTANT NOTE: You must add your own OpenAI API key or Bedrock key in the application.properties file
+ * for the embedding model to work. Without a valid key, the vector database creation will fail and the application won't function correctly.
+
+ * ChatController handles chat interactions and file uploads.
+ * It uses a chat client to process user messages
+ * and provides responses based on the uploaded content.
+ * It also redacts sensitive information
+ * from the uploaded content before processing
+ * and restores the original names in the response.
+ */
+
 @RestController
 public class ChatController {
 

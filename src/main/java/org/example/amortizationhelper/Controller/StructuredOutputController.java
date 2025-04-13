@@ -13,13 +13,10 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-/*
----
-JUST FOR TESTING PURPOSES
-TESTING OF STRUCTURED OUTPUTS AS AN ENTITY
-NOT USED IN THE APPLICATION
-----
-*/
+/**
+ * Just used for testing StructuredOutput.
+ * Can be ignored.
+ */
 
 @RestController
 public class StructuredOutputController {

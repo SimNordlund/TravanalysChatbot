@@ -1,38 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
   <modelVersion>4.0.0</modelVersion>
+
+  <!-- ── Spring Boot parent ─────────────────────────────────────────── -->
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
     <version>3.4.4</version>
-    <relativePath/> <!-- lookup parent from repository -->
+    <relativePath/>
   </parent>
+
   <groupId>org.example</groupId>
   <artifactId>amortization-helper</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>amortization-helper</name>
-  <description>amortization-helper</description>
-  <url/>
-  <licenses>
-    <license/>
-  </licenses>
-  <developers>
-    <developer/>
-  </developers>
-  <scm>
-    <connection/>
-    <developerConnection/>
-    <tag/>
-    <url/>
-  </scm>
+
+  <!-- ── Versions & BOM ─────────────────────────────────────────────── -->
   <properties>
     <java.version>21</java.version>
-    <spring-ai.version>1.0.0-M6</spring-ai.version>
+    <spring-ai.version>1.0.0-M7</spring-ai.version>      <!-- Changed! -->
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Spring AI BOM supplies every AI-related version -->
+      <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-bom</artifactId>
+        <version>${spring-ai.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <!-- ── Application dependencies ───────────────────────────────────── -->
   <dependencies>
 
+    <!-- Web & testing -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
@@ -43,60 +51,61 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
-<!--
+
+    <!-- OpenAI chat + embeddings -->
     <dependency>
       <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-pgvector-store</artifactId>
-      <version>1.0.0-M6</version>
-    </dependency> -->
+      <artifactId>spring-ai-starter-model-openai</artifactId>  <!-- Changed! -->
+    </dependency>
 
+    <!-- RAG helpers (RetrievalAugmentationAdvisor, retriever, etc.) -->
+    <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-rag</artifactId>                   <!-- Changed! -->
+    </dependency>
 
+    <!-- Core vector-store API + SimpleVectorStore impl -->
+    <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-vector-store</artifactId>          <!-- Changed! -->
+    </dependency>
 
+    <!-- PDF reader utility you already use -->
+    <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-pdf-document-reader</artifactId>
+    </dependency>
+
+    <!-- Apache PDFBox (still needed for manual parsing) -->
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>pdfbox</artifactId>
       <version>3.0.0</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>fontbox</artifactId>
       <version>3.0.0</version>
     </dependency>
 
- <dependency>
-      <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-pdf-document-reader</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
-      <version>${spring-ai.version}</version>
-    </dependency>
-
   </dependencies>
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>org.springframework.ai</groupId>
-        <artifactId>spring-ai-bom</artifactId>
-        <version>${spring-ai.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
+
+  <!-- ── Repositories ──────────────────────────────────────────────── -->
   <repositories>
+    <!-- Spring milestone repo still hosts 1.0.0-M7 artifacts -->
     <repository>
       <id>spring-milestones</id>
-      <name>Spring Milestones</name>
       <url>https://repo.spring.io/milestone</url>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
+    </repository>
+    <!-- Maven Central fallback -->
+    <repository>
+      <id>central</id>
+      <url>https://repo.maven.apache.org/maven2/</url>
     </repository>
   </repositories>
 
+  <!-- ── Build plugin ──────────────────────────────────────────────── -->
   <build>
     <plugins>
       <plugin>

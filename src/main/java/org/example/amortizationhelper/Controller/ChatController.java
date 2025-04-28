@@ -1,15 +1,17 @@
 package org.example.amortizationhelper.Controller;
 
 import java.io.IOException;
+
+import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.core.io.ResourceLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.InMemoryChatMemory;
-import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,16 +47,34 @@ public class ChatController {
   private String lastObjectName = "";
   private String lastUploadedContent = "";
 
-  public ChatController(ChatClient.Builder builder, VectorStore vectorStore, ResourceLoader resourceLoader) {
-    this.resourceLoader = resourceLoader;
-      Resource promptResource = resourceLoader.getResource("classpath:/prompts/amortergsunderlagPrompt.st");
+  public ChatController(ChatClient.Builder builder,
+                        VectorStore vectorStore,
+                        ResourceLoader resourceLoader) {
 
-      this.chatClient = builder
-          .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.builder()
-              .build()))
-          .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
-          .defaultSystem(promptResource)
-          .build();
+    this.resourceLoader = resourceLoader;
+    Resource promptResource =
+            resourceLoader.getResource("classpath:/prompts/amortergsunderlagPrompt.st");
+
+    /* 1️⃣  Build a retriever that knows how to query your VectorStore */
+    var documentRetriever = VectorStoreDocumentRetriever.builder()
+            .vectorStore(vectorStore)
+            .topK(4)                     // ← replaces searchRequest().topK(…)
+            .similarityThreshold(0.75)   // ← replaces searchRequest().similarityThreshold(…)
+            .build();
+
+    /* 2️⃣  Wrap it in the RAG advisor */
+    var ragAdvisor = RetrievalAugmentationAdvisor.builder()
+            .documentRetriever(documentRetriever)
+            .build();
+
+    /* 3️⃣  Assemble the ChatClient */
+    this.chatClient = builder
+            .defaultAdvisors(
+                    ragAdvisor,
+                    new MessageChatMemoryAdvisor(new InMemoryChatMemory())
+            )
+            .defaultSystem(promptResource)
+            .build();
   }
 
   @GetMapping("/chat-stream")

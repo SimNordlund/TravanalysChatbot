@@ -3,7 +3,6 @@ package org.example.amortizationhelper.Controller;
 import java.io.IOException;
 
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
-import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.core.io.ResourceLoader;
 import org.slf4j.Logger;
@@ -13,10 +12,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.core.io.Resource;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -53,7 +49,7 @@ public class ChatController {
 
     this.resourceLoader = resourceLoader;
     Resource promptResource =
-            resourceLoader.getResource("classpath:/prompts/amortergsunderlagPrompt.st");
+            resourceLoader.getResource("classpath:/prompts/travPrompt.st");
 
     /* 1️⃣  Build a retriever that knows how to query your VectorStore */
     var documentRetriever = VectorStoreDocumentRetriever.builder()
@@ -77,10 +73,25 @@ public class ChatController {
             .build();
   }
 
-  @GetMapping("/chat-stream")
+    @GetMapping("/chat-stream")
   public Flux<String> chatStream(@RequestParam(value = "message") String message) {
 
-    Resource promptResource = resourceLoader.getResource("classpath:/prompts/amortergsunderlagPrompt.st");
+    Resource promptResource = resourceLoader.getResource("classpath:/prompts/travPrompt.st");
+
+    String userMessage = message;
+
+    return chatClient.prompt()
+        .system(promptResource)
+        .user(userMessage)
+        .stream()
+        .content()
+        .map(this::restoreCustomerName);
+  }
+
+ /* @GetMapping("/chat-stream")
+  public Flux<String> chatStream(@RequestParam(value = "message") String message) {
+
+    Resource promptResource = resourceLoader.getResource("classpath:/prompts/travPrompt.st");
 
     String userMessage = message;
     if (!lastUploadedContent.isEmpty()) {
@@ -93,7 +104,7 @@ public class ChatController {
         .stream()
         .content()
         .map(this::restoreCustomerName);
-  }
+  } */
 
   @PostMapping("/upload")
   public String handleFileUpload(
@@ -135,11 +146,7 @@ public class ChatController {
           "reference the following previously uploaded content:\n" + lastUploadedContent;
     }
 
-    String chatSystemPrompt = "You are a helpful banking assistant specializing in Swedish financial regulations. " +
-        "Answer questions about amortization requirements clearly and concisely. " +
-        "Always respond in Swedish and refer to the document content when possible."
-        + "Use maximum 100 tokens or 100 words in each answer"
-        + "Start each sentence with HOLA";
+    String chatSystemPrompt = "You speak swedish";
 
     return chatClient.prompt()
         .system(chatSystemPrompt)

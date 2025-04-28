@@ -2,6 +2,7 @@ package org.example.amortizationhelper.Controller;
 
 import java.io.IOException;
 
+import org.springframework.core.Ordered;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.core.io.ResourceLoader;
@@ -51,19 +52,20 @@ public class ChatController {
     Resource promptResource =
             resourceLoader.getResource("classpath:/prompts/travPrompt.st");
 
-    /* 1️⃣  Build a retriever that knows how to query your VectorStore */
+    /* 1️⃣  Bygg retrievern */
     var documentRetriever = VectorStoreDocumentRetriever.builder()
             .vectorStore(vectorStore)
-            .topK(4)                     // ← replaces searchRequest().topK(…)
-            .similarityThreshold(0.75)   // ← replaces searchRequest().similarityThreshold(…)
+            .topK(10)
+            .similarityThreshold(0.4)        //Changed! – mjukare tröskel
             .build();
 
-    /* 2️⃣  Wrap it in the RAG advisor */
+    /* 2️⃣  RAG-rådgivare, men ge den lägre prioritet */
     var ragAdvisor = RetrievalAugmentationAdvisor.builder()
             .documentRetriever(documentRetriever)
+            .order(Ordered.LOWEST_PRECEDENCE) //Changed! – lägre än system-prompten
             .build();
 
-    /* 3️⃣  Assemble the ChatClient */
+    /* 3️⃣  ChatClient */
     this.chatClient = builder
             .defaultAdvisors(
                     ragAdvisor,
@@ -73,19 +75,21 @@ public class ChatController {
             .build();
   }
 
-    @GetMapping("/chat-stream")
-  public Flux<String> chatStream(@RequestParam(value = "message") String message) {
 
-    Resource promptResource = resourceLoader.getResource("classpath:/prompts/travPrompt.st");
+  @GetMapping("/chat-stream")
+  public Flux<String> chatStream(@RequestParam("message") String message) {
 
-    String userMessage = message;
+    Resource promptResource =
+            resourceLoader.getResource("classpath:/prompts/travPrompt.st");
+
+    String userMessage = message;        //Changed! – ingen extra begränsning
 
     return chatClient.prompt()
-        .system(promptResource)
-        .user(userMessage)
-        .stream()
-        .content()
-        .map(this::restoreCustomerName);
+            .system(promptResource)
+            .user(userMessage)
+            .stream()
+            .content()
+            .map(this::restoreCustomerName);
   }
 
  /* @GetMapping("/chat-stream")

@@ -12,54 +12,50 @@ import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.Resource;
+
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
 /**
- * RagConfiguration is a Spring configuration class
- * that sets up the RAG (Retrieval-Augmented Generation) system.
- * It initializes a SimpleVectorStore
- * and loads documents from a PDF file.
- * The documents are split into smaller chunks
- * using a TextSplitter
- * and stored in the vector store.
- * If the vector store file already exists,
- * it loads the existing data
- * instead of reprocessing the documents.
- * The class uses a PagePdfDocumentReader
- * to read the PDF file
- * and extract the text content.
- * The vector store file is saved
- * in the resources/data directory.
-
- *  IMPORTANT NOTE: You must add your own OpenAI API key or Bedrock key in the application.properties file
- *  for the embedding model to work. Without a valid key, the vector database creation will fail and the application won't function correctly.
+ * RagConfiguration sets up a RAG system using a Vector Store.
+ * It loads documents from a PDF and saves the embeddings for fast retrieval.
+ *
+ * Note: You must set a valid OpenAI or Bedrock API key for this to work.
  */
-
 @Configuration
 public class RagConfiguration {
 
   private static final Logger log = LoggerFactory.getLogger(RagConfiguration.class);
 
-  @Value("vectorstore.json")
-  private String vectorStoreName;
+  @Value("${vectorstore.filepath:temp/vectorstore.json}")
+  private String vectorStoreFilePath; // Default to temp/ for Windows/dev
 
   @Value("classpath:/docs/FI-REGLER.pdf")
   private Resource pdfResource;
 
   @Bean
-  SimpleVectorStore simpleVectorStore(EmbeddingModel embeddingModel) {
-    var simpleVectorStore = SimpleVectorStore.builder(embeddingModel)
-        .build();
+  public SimpleVectorStore simpleVectorStore(EmbeddingModel embeddingModel) {
+    SimpleVectorStore simpleVectorStore = SimpleVectorStore.builder(embeddingModel)
+            .build();
 
-    var vectorStoreFile = getVectorStoreFile();
+    File vectorStoreFile = new File(vectorStoreFilePath);
+
+    // Ensure parent directory exists
+    if (!vectorStoreFile.getParentFile().exists()) {
+      boolean dirsCreated = vectorStoreFile.getParentFile().mkdirs();
+      if (dirsCreated) {
+        log.info("Created directory for vectorstore: {}", vectorStoreFile.getParentFile().getAbsolutePath());
+      }
+    }
+
     if (vectorStoreFile.exists()) {
-      log.info("Vector Store File Exists,");
+      log.info("Vector store file found. Loading existing embeddings...");
       simpleVectorStore.load(vectorStoreFile);
     } else {
-      log.info("Vector Store File Does Not Exist, loading documents");
+      log.info("🚀 Vector store file not found. Creating from PDF...");
 
       PagePdfDocumentReader pdfReader = new PagePdfDocumentReader(pdfResource);
       List<Document> documents = pdfReader.get();
@@ -70,16 +66,12 @@ public class RagConfiguration {
 
       TextSplitter textSplitter = new TokenTextSplitter();
       List<Document> splitDocuments = textSplitter.apply(documents);
+
       simpleVectorStore.add(splitDocuments);
       simpleVectorStore.save(vectorStoreFile);
+
+      log.info("Vector store created and saved to {}", vectorStoreFile.getAbsolutePath());
     }
     return simpleVectorStore;
   }
-
-  private File getVectorStoreFile() {
-    Path path = Paths.get("src", "main", "resources", "data");
-    String absolutePath = path.toFile().getAbsolutePath() + "/" + vectorStoreName;
-    return new File(absolutePath);
-  }
-
 }

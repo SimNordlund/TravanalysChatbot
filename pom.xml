@@ -39,26 +39,9 @@
     </dependency>
 
     <dependency>
-      <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-bedrock-converse-spring-boot-starter</artifactId>
-      <version>1.0.0-M6</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-bedrock-ai-spring-boot-starter</artifactId>
-      <version>1.0.0-M6</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-bedrock</artifactId>
     </dependency>
 <!--
     <dependency>

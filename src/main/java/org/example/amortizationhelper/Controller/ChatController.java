@@ -2,6 +2,8 @@ package org.example.amortizationhelper.Controller;
 
 import java.io.IOException;
 
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.core.Ordered;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -49,47 +51,51 @@ public class ChatController {
                         ResourceLoader resourceLoader) {
 
     this.resourceLoader = resourceLoader;
-    Resource promptResource =
-            resourceLoader.getResource("classpath:/prompts/travPrompt.st");
+    Resource promptResource = resourceLoader.getResource("classpath:/prompts/travPrompt.st");
 
     /* 1️⃣  Bygg retrievern */
     var documentRetriever = VectorStoreDocumentRetriever.builder()
             .vectorStore(vectorStore)
-            .topK(10)
-            .similarityThreshold(0.4)        //Changed! – mjukare tröskel
+            .topK(4)
+            .similarityThreshold(0.3)        //Changed! – mjukare tröskel
             .build();
 
     /* 2️⃣  RAG-rådgivare, men ge den lägre prioritet */
     var ragAdvisor = RetrievalAugmentationAdvisor.builder()
             .documentRetriever(documentRetriever)
-            .order(Ordered.LOWEST_PRECEDENCE) //Changed! – lägre än system-prompten
+            //.order(Ordered.HIGHEST_PRECEDENCE) //Changed! – lägre än system-prompten
             .build();
 
     /* 3️⃣  ChatClient */
+
+    ChatMemory memory = MessageWindowChatMemory.builder()
+            .maxMessages(3)   // only the most recent 12 messages are retained  //Changed!
+            .build();
+
+// 2️⃣ Build your MessageChatMemoryAdvisor with that memory
+    var memoryAdvisor = MessageChatMemoryAdvisor
+            .builder(memory)  // supply the windowed ChatMemory here
+            .build();
+
+// 3️⃣ Register it on your ChatClient
     this.chatClient = builder
-            .defaultAdvisors(
-                    ragAdvisor,
-                    new MessageChatMemoryAdvisor(new InMemoryChatMemory())
-            )
+            .defaultAdvisors(ragAdvisor, memoryAdvisor)
             .defaultSystem(promptResource)
             .build();
   }
 
-
   @GetMapping("/chat-stream")
   public Flux<String> chatStream(@RequestParam("message") String message) {
 
-    Resource promptResource =
-            resourceLoader.getResource("classpath:/prompts/travPrompt.st");
+    //Resource promptResource = resourceLoader.getResource("classpath:/prompts/travPrompt.st");
 
-    String userMessage = message;        //Changed! – ingen extra begränsning
+    String userMessage = message.replaceAll("\\p{C}", "");
 
     return chatClient.prompt()
-            .system(promptResource)
+            //.system(promptResource)
             .user(userMessage)
             .stream()
-            .content()
-            .map(this::restoreCustomerName);
+            .content();
   }
 
  /* @GetMapping("/chat-stream")
@@ -110,7 +116,7 @@ public class ChatController {
         .map(this::restoreCustomerName);
   } */
 
-  @PostMapping("/upload")
+  /* @PostMapping("/upload")
   public String handleFileUpload(
       @RequestParam("file") MultipartFile file){
     try {
@@ -199,5 +205,5 @@ public class ChatController {
     }
 
     return result;
-  }
+  } */
 }

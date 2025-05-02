@@ -13,8 +13,10 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         // Allowing frontend origins
-        config.addAllowedOriginPattern("http://localhost:5173"); // Local development
-        config.addAllowedOriginPattern("https://travanalys.onrender.com"); // Production frontend
+        config.addAllowedOriginPattern("http://localhost:5173"); // Local dev
+        config.addAllowedOriginPattern("https://travanalys.onrender.com"); // Old domain
+        config.addAllowedOriginPattern("https://travanalys.se"); // New custom domain
+        config.addAllowedOriginPattern("https://www.travanalys.se"); // New custom domain (www)
 
         // Specify allowed HTTP methods
         config.addAllowedMethod("GET");

@@ -33,7 +33,7 @@ public class RagConfiguration {
   @Value("${vectorstore.filepath:temp/vectorstore.json}")
   private String vectorStoreFilePath; // Default to temp/ for Windows/dev
 
-  @Value("classpath:/docs/tavlingsreglemente.pdf")
+  @Value("classpath:/docs/travdata1337.pdf")
   private Resource pdfResource;
 
   @Bean
@@ -61,7 +61,7 @@ public class RagConfiguration {
       List<Document> documents = pdfReader.get();
 
       for (Document doc : documents) {
-        doc.getMetadata().put("filename", "Finansinspektionen.pdf");
+        doc.getMetadata().put("filename", "travpro.pdf");
       }
 
       TextSplitter textSplitter = new TokenTextSplitter();

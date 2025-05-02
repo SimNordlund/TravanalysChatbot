@@ -21,7 +21,7 @@
   <!-- ── Versions & BOM ─────────────────────────────────────────────── -->
   <properties>
     <java.version>21</java.version>
-    <spring-ai.version>1.0.0-M7</spring-ai.version>      <!-- Changed! -->
+    <spring-ai.version>1.0.0-M8</spring-ai.version>      <!-- Changed! -->
   </properties>
 
   <dependencyManagement>

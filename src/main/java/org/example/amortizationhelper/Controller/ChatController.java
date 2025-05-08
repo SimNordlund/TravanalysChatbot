@@ -32,8 +32,8 @@ public class ChatController {
     // 1️⃣ Document retriever
     var retriever = VectorStoreDocumentRetriever.builder()
             .vectorStore(vectorStore)
-            .topK(8)
-            .similarityThreshold(0.05)
+           // .topK(40)
+           // .similarityThreshold(0.05)
             .build();
 
     // 2️⃣ Load prompt template
@@ -61,7 +61,7 @@ public class ChatController {
 
     // 5️⃣ Chat memory (last 3 messages)
     ChatMemory memory = MessageWindowChatMemory.builder()
-            .maxMessages(3)
+            .maxMessages(12)
             .build();
     var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).build();
 

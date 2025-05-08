@@ -64,8 +64,8 @@ public class RagConfiguration {
         doc.getMetadata().put("filename", "travpro.pdf");
       }
 
-      TextSplitter textSplitter = new TokenTextSplitter();
-      List<Document> splitDocuments = textSplitter.apply(documents);
+      var splitter = new TokenTextSplitter(512, 64, 20, 0, false);
+      List<Document> splitDocuments = splitter.apply(documents);
 
       simpleVectorStore.add(splitDocuments);
       simpleVectorStore.save(vectorStoreFile);

@@ -1,11 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<!-- pom.xml -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-
   <modelVersion>4.0.0</modelVersion>
 
-  <!-- ── Spring Boot parent ─────────────────────────────────────────── -->
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
@@ -16,17 +14,15 @@
   <groupId>org.example</groupId>
   <artifactId>amortization-helper</artifactId>
   <version>0.0.1-SNAPSHOT</version>
-  <name>amortization-helper</name>
 
-  <!-- ── Versions & BOM ─────────────────────────────────────────────── -->
   <properties>
     <java.version>21</java.version>
-    <spring-ai.version>1.0.0-M8</spring-ai.version>      <!-- Changed! -->
+    <spring-ai.version>1.0.0-M8</spring-ai.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
-      <!-- Spring AI BOM supplies every AI-related version -->
+      <!-- Spring AI BOM -->
       <dependency>
         <groupId>org.springframework.ai</groupId>
         <artifactId>spring-ai-bom</artifactId>
@@ -37,46 +33,44 @@
     </dependencies>
   </dependencyManagement>
 
-  <!-- ── Application dependencies ───────────────────────────────────── -->
   <dependencies>
-
-    <!-- Web & testing -->
+    <!-- Spring Boot Web -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency>
+    <!-- Spring AI Chat Client -->
 
-    <!-- OpenAI chat + embeddings -->
+    <!-- OpenAI model support -->
     <dependency>
       <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-starter-model-openai</artifactId>  <!-- Changed! -->
+      <artifactId>spring-ai-starter-model-openai</artifactId>
     </dependency>
 
-    <!-- RAG helpers (RetrievalAugmentationAdvisor, retriever, etc.) -->
+    <!-- RAG support -->
     <dependency>
       <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-rag</artifactId>                   <!-- Changed! -->
+      <artifactId>spring-ai-rag</artifactId>
     </dependency>
-
-    <!-- Core vector-store API + SimpleVectorStore impl -->
     <dependency>
       <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-vector-store</artifactId>          <!-- Changed! -->
+      <artifactId>spring-ai-advisors-vector-store</artifactId>
     </dependency>
 
-    <!-- PDF reader utility you already use -->
+    <!-- Vector store implementation -->
+    <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-vector-store</artifactId>
+    </dependency>
+
+    <!-- PDF document reader -->
     <dependency>
       <groupId>org.springframework.ai</groupId>
       <artifactId>spring-ai-pdf-document-reader</artifactId>
     </dependency>
 
-    <!-- Apache PDFBox (still needed for manual parsing) -->
+    <!-- PDFBox fallback for manual parsing -->
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>pdfbox</artifactId>
@@ -84,28 +78,28 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.pdfbox</groupId>
-      <artifactId>fontbox</artifactId>
-      <version>3.0.0</version>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-model</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
-  <!-- ── Repositories ──────────────────────────────────────────────── -->
   <repositories>
-    <!-- Spring milestone repo still hosts 1.0.0-M7 artifacts -->
     <repository>
       <id>spring-milestones</id>
       <url>https://repo.spring.io/milestone</url>
     </repository>
-    <!-- Maven Central fallback -->
     <repository>
       <id>central</id>
-      <url>https://repo.maven.apache.org/maven2/</url>
+      <url>https://repo.maven.org/maven2</url>
     </repository>
   </repositories>
 
-  <!-- ── Build plugin ──────────────────────────────────────────────── -->
   <build>
     <plugins>
       <plugin>
@@ -114,5 +108,4 @@
       </plugin>
     </plugins>
   </build>
-
 </project>

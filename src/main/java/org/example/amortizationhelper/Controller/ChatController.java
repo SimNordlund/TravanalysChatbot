@@ -12,6 +12,7 @@ import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.template.st.StTemplateRenderer;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,7 +39,13 @@ public class ChatController {
 
     // 2️⃣ Load prompt template
     Resource promptRes = resourceLoader.getResource("classpath:/prompts/travPrompt.st");
-    String templateString = Files.readString(promptRes.getFile().toPath(), StandardCharsets.UTF_8);
+
+    String templateString;                               //Changed!
+    try (var in = promptRes.getInputStream()) {          //Changed!
+      templateString = StreamUtils.copyToString(       //Changed!
+              in, StandardCharsets.UTF_8);             //Changed!
+    }
+
     PromptTemplate template = PromptTemplate.builder()
             .renderer(StTemplateRenderer.builder()
                     .startDelimiterToken('<')

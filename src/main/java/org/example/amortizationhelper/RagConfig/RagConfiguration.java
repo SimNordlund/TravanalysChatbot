@@ -33,7 +33,7 @@ public class RagConfiguration {
   @Value("${vectorstore.filepath:temp/vectorstore.json}")
   private String vectorStoreFilePath; // Default to temp/ for Windows/dev
 
-  @Value("classpath:/docs/rankdaysix.pdf")
+  @Value("classpath:/docs/rankdaynine.pdf")
   private Resource pdfResource;
 
   @Bean

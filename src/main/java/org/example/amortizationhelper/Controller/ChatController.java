@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+
 
 @RestController
 public class ChatController {
@@ -30,20 +30,19 @@ public class ChatController {
                         VectorStore vectorStore,
                         ResourceLoader resourceLoader) throws Exception {
 
-    // 1️⃣ Document retriever
     var retriever = VectorStoreDocumentRetriever.builder()
             .vectorStore(vectorStore)
            // .topK(40)
            // .similarityThreshold(0.05)
             .build();
 
-    // 2️⃣ Load prompt template
+
     Resource promptRes = resourceLoader.getResource("classpath:/prompts/travPrompt.st");
 
-    String templateString;                               //Changed!
-    try (var in = promptRes.getInputStream()) {          //Changed!
-      templateString = StreamUtils.copyToString(       //Changed!
-              in, StandardCharsets.UTF_8);             //Changed!
+    String templateString;
+    try (var in = promptRes.getInputStream()) {
+      templateString = StreamUtils.copyToString(
+              in, StandardCharsets.UTF_8);
     }
 
     PromptTemplate template = PromptTemplate.builder()
@@ -54,25 +53,21 @@ public class ChatController {
             .template(templateString)
             .build();
 
-    // 3️⃣ Query augmenter with custom template
     var queryAugmenter = ContextualQueryAugmenter.builder()
             .allowEmptyContext(true)
             .promptTemplate(template)
             .build();
 
-    // 4️⃣ RetrievalAugmentationAdvisor
     var ragAdvisor = RetrievalAugmentationAdvisor.builder()
             .documentRetriever(retriever)
             .queryAugmenter(queryAugmenter)
             .build();
 
-    // 5️⃣ Chat memory (last 3 messages)
     ChatMemory memory = MessageWindowChatMemory.builder()
             .maxMessages(12)
             .build();
     var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).build();
 
-    // 6️⃣ Build ChatClient
     this.chatClient = builder
             .defaultAdvisors(ragAdvisor, memoryAdvisor)
             .build();

@@ -79,6 +79,10 @@ public class ChatController {
     return chatClient.prompt()
             .user(clean)
             .stream()
-            .content();
+            .content(); //call? Se video.
+    //structured output
+    //metod som visar vad som man får (innehåll)
+    //conversation ID för att alltid skriva HEJ SIMON
+    //Tools calling? Skapa metod som kallar på ett API? @Tool
   }
 }

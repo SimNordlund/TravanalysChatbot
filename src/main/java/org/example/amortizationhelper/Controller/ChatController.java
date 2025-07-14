@@ -79,7 +79,7 @@ public class ChatController {
     return chatClient.prompt()
             .user(clean)
             .stream()
-            .content(); //call? Se video.
+            .content();
     //structured output
     //metod som visar vad som man får (innehåll)
     //conversation ID för att alltid skriva HEJ SIMON

@@ -3,6 +3,8 @@ Travolta är en smart och personlig travbot som hjälper dig analysera och förs
 
 Botens svar bygger på hästdata från svenska travbanor, och presenterar alltid analys, prestation, motstånd, tid och prispengar per häst. Analysen (procentanalys) är alltid det viktigaste värdet, vilket också styr ordningen i svaren. Fokus ligger på att förklara trav-data så enkelt och tydligt som möjligt, precis som om du snackar med en smart polare.
 
+
+
 Funktioner
 Naturlig konversation på svenska kring hästar, lopp och analyser.
 
@@ -18,6 +20,8 @@ Hämtar och sparar embeddings från PDF-dokument och vektordatabaser för effekt
 
 Modern, strömlinjeformad backend byggd med Spring Boot, OpenAI, och RAG (Retrieval Augmented Generation).
 
+
+
 Teknisk översikt
 Spring Boot backend (Java 21+)
 
@@ -32,6 +36,9 @@ Prompt engineering för att alltid leverera relevanta svar på svenska
 PDF-ingest och tokenisering för egen travdokumentation och kunskap
 
 Konfigurationsstyrd deploy för både lokal utveckling och moln (Render, Docker)
+
+
+
 
 1. Komma igång
 Klona repot:
@@ -50,6 +57,9 @@ Skicka meddelanden till /chat-stream?message=Ditt+meddelande
 
 Miljövariabler & Konfiguration
 Se application.properties för alla inställningar kring modell, retry-logik, port mm. Vektordata lagras i /tmp/vectorstore.json i produktionsläge.
+
+
+
 
 Bidra / Förslag
 Vill du bidra eller har förslag på förbättringar? Skapa gärna en issue eller PR direkt i repot.

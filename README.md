@@ -4,7 +4,6 @@ Travolta är en smart och personlig travbot som hjälper dig analysera och förs
 Botens svar bygger på hästdata från svenska travbanor, och presenterar alltid analys, prestation, motstånd, tid och prispengar per häst. Analysen (procentanalys) är alltid det viktigaste värdet, vilket också styr ordningen i svaren. Fokus ligger på att förklara trav-data så enkelt och tydligt som möjligt, precis som om du snackar med en smart polare.
 
 
-
 Funktioner
 Naturlig konversation på svenska kring hästar, lopp och analyser.
 

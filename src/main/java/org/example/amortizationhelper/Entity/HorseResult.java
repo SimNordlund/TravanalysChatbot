@@ -3,6 +3,7 @@ package org.example.amortizationhelper.Entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.*;
 
 @Entity
@@ -11,6 +12,8 @@ import lombok.*;
 @Getter
 @Setter
 @Builder
+@Table(name ="rank")
+
 public class HorseResult {
     @Id
     private Long id;

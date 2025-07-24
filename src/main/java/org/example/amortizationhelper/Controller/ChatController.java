@@ -1,5 +1,6 @@
 package org.example.amortizationhelper.Controller;
 
+import org.example.amortizationhelper.Tools.TravTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -28,7 +29,8 @@ public class ChatController {
 
   public ChatController(ChatClient.Builder builder,
                         VectorStore vectorStore,
-                        ResourceLoader resourceLoader) throws Exception {
+                        ResourceLoader resourceLoader,
+                        TravTools travTools) throws Exception {
 
     var retriever = VectorStoreDocumentRetriever.builder()
             .vectorStore(vectorStore)
@@ -70,6 +72,7 @@ public class ChatController {
 
     this.chatClient = builder
             .defaultAdvisors(ragAdvisor, memoryAdvisor)
+            .defaultTools(travTools)
             .build();
   }
 

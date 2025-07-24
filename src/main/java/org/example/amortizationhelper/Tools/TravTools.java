@@ -21,9 +21,19 @@ public class TravTools {
         return horseResultRepo.findById(id).orElse(null);
     }
 
-    @Tool(description = "Lista resultat för ett startdatum (YYYYMMDD) och bankod.")
-    public List<HorseResult> listByDateAndTrack(Integer startDate, String banKod) {
-        return horseResultRepo.findByStartDateAndBanKod(startDate, banKod);
+    @Tool(description = "Lista resultat för ett startdatum (YYYYMMDD eller YYYY-MM-DD) och bankod.") //Changed!
+    public List<HorseResult> listByDateAndTrackFlexible(String date, String banKod) { //Changed!
+        // Konvertera "2025-07-17" -> "20250717" //Changed!
+        String cleaned = date.replaceAll("-", ""); //Changed!
+        Integer start; //Changed!
+        try { //Changed!
+            start = Integer.valueOf(cleaned); //Changed!
+        } catch (NumberFormatException e) { //Changed!
+            return List.of(); //Changed!
+        }
+        List<HorseResult> results = horseResultRepo.findByStartDateAndBanKod(start, banKod); //Changed!
+        System.out.println("Tool listByDateAndTrackFlexible hittade " + results.size() + " rader"); //Changed!
+        return results; //Changed!
     }
 
     @Tool(description = "Sök hästar vars namn innehåller ett fragment.")

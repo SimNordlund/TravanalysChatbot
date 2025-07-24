@@ -11,4 +11,6 @@ public interface HorseResultRepo extends JpaRepository <HorseResult, Long> {
      List<HorseResult> findByStartDateAndBanKod(Integer startDate, String banKod);
 
      List<HorseResult> findByNameOfHorseContainingIgnoreCase(String name);
+
+  //   List <HorseResult> findHorseResultByStartDateAndBanKod(Integer date, String banKod);
 }

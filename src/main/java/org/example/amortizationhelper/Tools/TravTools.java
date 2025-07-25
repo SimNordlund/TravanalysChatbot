@@ -21,22 +21,22 @@ public class TravTools {
         return horseResultRepo.findById(id).orElse(null);
     }
 
-    @Tool(description = "Lista resultat för ett startdatum (YYYYMMDD eller YYYY-MM-DD) och bankod.") //Changed!
-    public List<HorseResult> listByDateAndTrackFlexible(String date, String banKod) { //Changed!
-        // Konvertera "2025-07-17" -> "20250717" //Changed!
-        String cleaned = date.replaceAll("-", ""); //Changed!
-        Integer start; //Changed!
-        try { //Changed!
-            start = Integer.valueOf(cleaned); //Changed!
-        } catch (NumberFormatException e) { //Changed!
-            return List.of(); //Changed!
+    @Tool(description = "Lista resultat för ett startdatum (YYYYMMDD eller YYYY-MM-DD) och bankod.")
+    public List<HorseResult> listByDateAndTrackFlexible(String date, String banKod) {
+        // Konvertera "2025-07-17" -> "20250717"
+        String cleaned = date.replaceAll("-", "");
+        Integer start;
+        try {
+            start = Integer.valueOf(cleaned);
+        } catch (NumberFormatException e) {
+            return List.of();
         }
-        List<HorseResult> results = horseResultRepo.findByStartDateAndBanKod(start, banKod); //Changed!
-        System.out.println("Tool listByDateAndTrackFlexible hittade " + results.size() + " rader"); //Changed!
-        return results; //Changed!
+        List<HorseResult> results = horseResultRepo.findByStartDateAndBanKod(start, banKod);
+        System.out.println("Tool listByDateAndTrackFlexible hittade " + results.size() + " rader");
+        return results;
     }
 
-    @Tool(description = "Sök hästar vars namn innehåller ett fragment.")
+    @Tool(description = "Sök fram en häst och dess värden baserat på namnet på hästen")
     public List<HorseResult> searchByHorseName(String nameFragment) {
         return horseResultRepo.findByNameOfHorseContainingIgnoreCase(nameFragment);
     }

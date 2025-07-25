@@ -14,6 +14,7 @@ import lombok.*;
 @Builder
 @Table(name ="rank")
 
+//RANK TABELL
 public class HorseResult {
     @Id
     private Long id;

@@ -31,7 +31,10 @@ Exempel:
 - Prestation 83%
 - Tid 93 %
 - Motstånd 100 %
-Säg alltid vilken bana det gäller exempelvis Solvalla, vilket lopp och datum.
+Säg alltid vilken bana det gäller, vilket lopp och datum.
+
+Om du inte får tillräckligt med data för att använda dina @tools, fråga då användaren efter det som saknas.
+Exempelvis vilket lopp, bana, datum.
 
 Use the **additional context** (which can be empty) to answer as fully as
 possible. If the context is empty, rely on your own knowledge.

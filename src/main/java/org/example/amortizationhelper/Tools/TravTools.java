@@ -1,5 +1,6 @@
 package org.example.amortizationhelper.Tools;
 
+import lombok.AllArgsConstructor;
 import org.example.amortizationhelper.Entity.HorseResult;
 import org.example.amortizationhelper.repo.HorseResultRepo;
 import org.springframework.ai.tool.annotation.Tool;
@@ -7,21 +8,19 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+//Tools för rank tabell
 @Component
+@AllArgsConstructor
 public class TravTools {
 
     private final HorseResultRepo horseResultRepo;
 
-    public TravTools(HorseResultRepo horseResultRepo) {
-        this.horseResultRepo = horseResultRepo;
-    }
-
-    @Tool(description = "Hämta värden baserat på ett id.")
+    @Tool(description = "Hämta värden om hästar baserat på ett id.")
     public HorseResult getHorseValues(Long id) {
         return horseResultRepo.findById(id).orElse(null);
     }
 
-    @Tool(description = "Lista resultat för ett startdatum (YYYYMMDD eller YYYY-MM-DD) och bankod.")
+    @Tool(description = "Lista resultat för ett datum (YYYYMMDD eller YYYY-MM-DD) och bankod.")
     public List<HorseResult> listByDateAndTrackFlexible(String date, String banKod) {
         // Konvertera "2025-07-17" -> "20250717"
         String cleaned = date.replaceAll("-", "");
@@ -36,13 +35,16 @@ public class TravTools {
         return results;
     }
 
-    @Tool(description = "Lista resultat för ett startdatum (YYYYMMDD eller YYYY-MM-DD), bankod och lopp")
-    public List<HorseResult> listByDateAndTrackAndLap(String date, String banKod, String lap) {
+    @Tool(
+            name = "results_by_date_track_lap",
+            description = "Lista Resultat (Analys/Prestation/Motstånd/Tid) för datum, bankod och lopp."
+    )
+    public List<HorseResult> listResultsByDateAndTrackAndLap(String date, String banKod, String lap) {
 
         String cleaned = date.replaceAll("-", "");
         Integer startDate;
         try {
-            startDate = Integer.valueOf(cleaned);
+            startDate = Integer.parseInt(cleaned);
         } catch (NumberFormatException e) {
             return List.of();
         }
@@ -59,7 +61,7 @@ public class TravTools {
     @Tool(description = "Hämta topp N hästar (Analys) för datum, bankod och lopp.")
     public List<HorseResult> topHorses(String date, String banKod, String lap, Integer limit) {
         if (limit == null || limit <= 0) limit = 3;
-        List<HorseResult> all = listByDateAndTrackAndLap(date, banKod, lap);
+        List<HorseResult> all = listResultsByDateAndTrackAndLap(date, banKod, lap);
         return all.stream()
                 .sorted((a,b) -> parse(b.getProcentAnalys()) - parse(a.getProcentAnalys()))
                 .limit(limit)

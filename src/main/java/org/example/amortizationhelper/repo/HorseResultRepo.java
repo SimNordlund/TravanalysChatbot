@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+//RANK REPO
 @Repository
 public interface HorseResultRepo extends JpaRepository<HorseResult, Long> {
     List<HorseResult> findByStartDateAndBanKod(Integer startDate, String banKod);

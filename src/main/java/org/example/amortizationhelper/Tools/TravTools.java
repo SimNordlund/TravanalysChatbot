@@ -20,7 +20,7 @@ public class TravTools {
         return horseResultRepo.findById(id).orElse(null);
     }
 
-    @Tool(description = "Lista resultat för ett datum (YYYYMMDD eller YYYY-MM-DD) och bankod.")
+    @Tool(description = "Lista Travanalys odds och värden för ett datum (YYYYMMDD eller YYYY-MM-DD) och bankod.")
     public List<HorseResult> listByDateAndTrackFlexible(String date, String banKod) {
         // Konvertera "2025-07-17" -> "20250717"
         String cleaned = date.replaceAll("-", "");
@@ -37,7 +37,7 @@ public class TravTools {
 
     @Tool(
             name = "results_by_date_track_lap",
-            description = "Lista Resultat (Analys/Prestation/Motstånd/Tid) för datum, bankod och lopp."
+            description = "Travanalys odds och värden (Analys/Prestation/Motstånd/Tid) för datum, bankod och lopp."
     )
     public List<HorseResult> listResultsByDateAndTrackAndLap(String date, String banKod, String lap) {
 
@@ -71,7 +71,7 @@ public class TravTools {
         try { return Integer.parseInt(val); } catch (Exception e) { return -1; }
     }
 
-    @Tool(description = "Visa en hästs senaste starter sorterade efter datum (senaste först).")
+    @Tool(description = "Visa en hästs Travanalys odds och värden sorterade efter datum (senaste först).")
     public List<HorseResult> horseHistory(String nameFragment, Integer limit) {
         if (limit == null || limit <= 0) limit = 5;
         return horseResultRepo
@@ -80,5 +80,4 @@ public class TravTools {
                 .limit(limit)
                 .toList();
     }
-
 }

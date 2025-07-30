@@ -89,8 +89,7 @@ public class ChatController {
                 .stream()
                 .content();
         //structured output
-        //metod som visar vad som man får (innehåll)
         //conversation ID för att alltid skriva HEJ SIMON
-        //Tools calling? Skapa metod som kallar på ett API? @Tool
+        //VIDEO DAN VEGA !
     }
 }

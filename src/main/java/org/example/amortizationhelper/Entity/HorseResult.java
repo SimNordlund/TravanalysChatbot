@@ -44,4 +44,7 @@ public class HorseResult {
 
     @Column(name = "procentanalys")
     private String procentAnalys;
+
+   @Column(name = "tips")
+    private Integer tips;
 }

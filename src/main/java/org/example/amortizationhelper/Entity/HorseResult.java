@@ -33,17 +33,35 @@ public class HorseResult {
     @Column(name = "namn")
     private String nameOfHorse;
 
-    @Column(name = "procenttid")
-    private String procentTid;
+    @Column(name = "procenttid") ////fart
+    private String procentFart;
 
-    @Column(name = "procentprestation")
+    @Column(name = "procentprestation") //prestation
     private String procentPrestation;
 
-    @Column(name = "procentmotstand")
+    @Column(name = "procentmotstand") //motstånd
     private String procentMotstand;
 
-    @Column(name = "procentanalys")
+    @Column(name = "procentklass") //klass
+    private String  klassProcent;
+
+    @Column(name = "procentanalys") //analys
     private String procentAnalys;
+
+    @Column(name = "procentskrik") //skrik
+    private String procentSkrik;
+
+    @Column(name = "procentplacering") //placering
+    private String procentPlacering;
+
+    @Column(name ="procentform") //form
+    private String procentForm;
+
+    @Column(name = "spelform")
+    private String spelForm;
+
+    @Column(name = "starter")
+    private String starter;
 
    @Column(name = "tips")
     private Integer tips;

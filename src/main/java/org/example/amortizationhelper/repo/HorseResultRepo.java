@@ -18,4 +18,10 @@ public interface HorseResultRepo extends JpaRepository<HorseResult, Long> {
     List<HorseResult> findByNameOfHorseContainingIgnoreCaseOrderByStartDateDesc(String name);
 
     List <HorseResult> findByStartDateAndBanKodAndLapAndTips(Integer startDate, String banKod, String lap, Integer tips);
+
+    List<HorseResult> findByStartDateAndBanKodAndLapAndSpelFormIgnoreCaseAndStarter(
+            Integer startDate, String banKod, String lap, String spelForm, String starter);
+
+    List<HorseResult> findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(
+            Integer startDate, String banKod, String lap, String spelForm);
 }

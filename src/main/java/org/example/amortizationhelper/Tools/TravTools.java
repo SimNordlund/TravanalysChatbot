@@ -7,22 +7,46 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
 import java.text.Normalizer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Component
 @AllArgsConstructor
 public class TravTools {
 
-    private final HorseResultRepo horseResultRepo;
+    private static final Map<String, String> tackToBanKod = Map.ofEntries(
+            Map.entry("Ar", "Arvika"), Map.entry("Ax", "Axevalla"),
+            Map.entry("B", "Bergsåker"), Map.entry("Bo", "Boden"),
+            Map.entry("Bs", "Bollnäs"), Map.entry("D", "Dannero"),
+            Map.entry("Dj", "Dala Järna"), Map.entry("E", "Eskilstuna"),
+            Map.entry("J", "Jägersro"), Map.entry("F", "Färjestad"),
+            Map.entry("G", "Gävle"), Map.entry("Gt", "Göteborg trav"),
+            Map.entry("H", "Hagmyren"), Map.entry("Hd", "Halmstad"),
+            Map.entry("Hg", "Hoting"), Map.entry("Kh", "Karlshamn"),
+            Map.entry("Kr", "Kalmar"), Map.entry("L", "Lindesberg"),
+            Map.entry("Ly", "Lycksele"), Map.entry("Mp", "Mantorp"),
+            Map.entry("Ov", "Oviken"), Map.entry("Ro", "Romme"),
+            Map.entry("Rä", "Rättvik"), Map.entry("S", "Solvalla"),
+            Map.entry("Sk", "Skellefteå"), Map.entry("Sä", "Solänget"),
+            Map.entry("Ti", "Tingsryd"), Map.entry("Tt", "Täby Trav"),
+            Map.entry("U", "Umåker"), Map.entry("Vd", "Vemdalen"),
+            Map.entry("Vg", "Vaggeryd"), Map.entry("Vi", "Visby"),
+            Map.entry("Å", "Åby"), Map.entry("Åm", "Åmål"),
+            Map.entry("År", "Årjäng"), Map.entry("Ö", "Örebro"),
+            Map.entry("Ös", "Östersund")
+    );
 
-    @Tool(description = "Hämta värden om hästar baserat på ett id.")
+  /*  @Tool(description = "Hämta värden om hästar baserat på ett id.")
     public HorseResult getHorseValues(Long id) {
         return horseResultRepo.findById(id).orElse(null);
-    }
+    } */
 
-    @Tool(description = "Lista odds/värden för ett datum och en bana. Accepterar svenska datum (t.ex. '17 juli 2025') och bannamn (t.ex. 'Solvalla') eller bankod (t.ex. 'S').")
+ /*   @Tool(description = "Lista odds/värden för ett datum och en bana. Accepterar svenska datum (t.ex. '17 juli 2025') och bannamn (t.ex. 'Solvalla') eller bankod (t.ex. 'S').")
     public List<HorseResult> listByDateAndTrackFlexible(String dateOrPhrase, String banKodOrTrack) {
         Integer start = parseDateFlexible(dateOrPhrase);
         String banKod = resolveBanKodFlexible(banKodOrTrack);
@@ -31,9 +55,9 @@ public class TravTools {
         List<HorseResult> results = horseResultRepo.findByStartDateAndBanKod(start, banKod);
         System.out.println("Tool listByDateAndTrackFlexible hittade " + results.size() + " rader (date=" + start + ", banKod=" + banKod + ")");
         return results;
-    }
+    } */
 
-    @Tool(name = "results_by_date_track_lap",
+    /*    @Tool(name = "results_by_date_track_lap",
             description = "Oddsen/värden (Analys/Prestation/Motstånd/Tid) för datum, bana och lopp. Accepterar svenska datum, bannamn/bankod och t.ex. 'lopp 5' eller '5'.")
     public List<HorseResult> listResultsByDateAndTrackAndLap(String dateOrPhrase, String banKodOrTrack, String lapOrPhrase) {
         Integer startDate = parseDateFlexible(dateOrPhrase);
@@ -46,12 +70,7 @@ public class TravTools {
         return results;
     }
 
-    @Tool(description = "Sök fram en häst och dess värden baserat på namnet på hästen")
-    public List<HorseResult> searchByHorseName(String nameFragment) {
-        return horseResultRepo.findByNameOfHorseContainingIgnoreCase(nameFragment);
-    }
-
-    @Tool(description = "Hämta topp N hästar (Analys) för datum, bana och lopp. Accepterar naturliga indata som svensk fras.")
+        @Tool(description = "Hämta topp N hästar (Analys) för datum, bana och lopp. Accepterar naturliga indata som svensk fras.")
     public List<HorseResult> topHorses(String dateOrPhrase, String banKodOrTrack, String lapOrPhrase, Integer limit) {
         if (limit == null || limit <= 0) limit = 3;
         List<HorseResult> all = listResultsByDateAndTrackAndLap(dateOrPhrase, banKodOrTrack, lapOrPhrase);
@@ -59,6 +78,270 @@ public class TravTools {
                 .sorted((a,b) -> parse(b.getProcentAnalys()) - parse(a.getProcentAnalys()))
                 .limit(limit)
                 .toList();
+    } */
+    private static final Map<String, Integer> svMonth = Map.ofEntries(
+            Map.entry("januari", 1), Map.entry("februari", 2), Map.entry("mars", 3), Map.entry("april", 4),
+            Map.entry("maj", 5), Map.entry("juni", 6), Map.entry("juli", 7), Map.entry("augusti", 8),
+            Map.entry("september", 9), Map.entry("oktober", 10), Map.entry("november", 11), Map.entry("december", 12)
+    );
+    private final HorseResultRepo horseResultRepo;
+
+    private static int safeInt(String s) { //Changed!
+        try {
+            return Integer.parseInt(s.replaceAll("[^0-9-]", ""));
+        } catch (Exception e) {
+            return 0;
+        } //Changed!
+    }
+
+    private static String normalize(String s) {
+        if (s == null) return null;
+        String n = Normalizer.normalize(s, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        return n.toLowerCase(Locale.ROOT).trim();
+    }
+
+    private static boolean containsWordSpeltips(String norm) {
+        return norm.contains("speltips");
+    }
+
+    private static Integer parseExplicitTipsValue(String norm) {
+        Matcher m = Pattern.compile("(speltips|tips)\\s*(=|ar|är|:)?\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(norm);
+        if (m.find()) {
+            try {
+                return Integer.parseInt(m.group(3));
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static String parseLap(String norm) {
+        Matcher m1 = Pattern.compile("\\blopp\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(norm);
+        if (m1.find()) return m1.group(1);
+
+        Matcher m2 = Pattern.compile("(\\d{1,2})(?!\\d)").matcher(norm);
+        String last = null;
+        while (m2.find()) last = m2.group(1);
+        return last;
+    }
+
+    private static Integer parseDateFlexible(String anyDate) {
+        if (anyDate == null || anyDate.isBlank()) return null;
+        String norm = normalize(anyDate);
+        Integer fromWords = parseDateFromSwedish(norm);
+        if (fromWords != null) return fromWords;
+
+        Matcher ymdDigits = Pattern.compile("(\\d{4})[-/ ]?(\\d{2})[-/ ]?(\\d{2})").matcher(norm);
+        if (ymdDigits.find()) {
+            int year = Integer.parseInt(ymdDigits.group(1));
+            int month = Integer.parseInt(ymdDigits.group(2));
+            int day = Integer.parseInt(ymdDigits.group(3));
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return year * 10000 + month * 100 + day;
+        }
+        return null;
+    }
+
+    private static String parseLapFlexible(String lapOrPhrase) {
+        if (lapOrPhrase == null || lapOrPhrase.isBlank()) return null;
+        return parseLap(normalize(lapOrPhrase));
+    }
+
+
+    //HELPERS
+    // JAO
+
+    private static String resolveBanKodFlexible(String banKodOrTrack) {
+        if (banKodOrTrack == null || banKodOrTrack.isBlank()) return null;
+        String norm = normalize(banKodOrTrack);
+        return toBanKod(norm);
+    }
+
+    private static Integer parseDateFromSwedish(String norm) {
+        if (norm == null) return null;
+        Matcher ydm = Pattern.compile("(\\d{4})\\D{0,5}(\\d{1,2})\\D{0,5}(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)").matcher(norm);
+        if (ydm.find()) {
+            int year = Integer.parseInt(ydm.group(1));
+            int day = Integer.parseInt(ydm.group(2));
+            int month = svMonth.getOrDefault(ydm.group(3), 0);
+            if (month >= 1 && day >= 1 && day <= 31) return year * 10000 + month * 100 + day;
+        }
+        Matcher dmy = Pattern.compile("(\\d{1,2})\\D{0,5}(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\\D{0,5}(\\d{4})").matcher(norm);
+        if (dmy.find()) {
+            int day = Integer.parseInt(dmy.group(1));
+            int month = svMonth.getOrDefault(dmy.group(2), 0);
+            int year = Integer.parseInt(dmy.group(3));
+            if (month >= 1 && day >= 1 && day <= 31) return year * 10000 + month * 100 + day;
+        }
+        Matcher ymdDigits = Pattern.compile("(\\d{4})[-/ ]?(\\d{2})[-/ ]?(\\d{2})").matcher(norm);
+        if (ymdDigits.find()) {
+            int year = Integer.parseInt(ymdDigits.group(1));
+            int month = Integer.parseInt(ymdDigits.group(2));
+            int day = Integer.parseInt(ymdDigits.group(3));
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return year * 10000 + month * 100 + day;
+        }
+        return null;
+    }
+
+    private static String toBanKod(String norm) {
+        if (norm == null) return null;
+        for (String code : tackToBanKod.keySet()) {
+            if (norm.matches(".*\\b" + normalize(code) + "\\b.*")) return code;
+        }
+        for (Map.Entry<String, String> e : tackToBanKod.entrySet()) {
+            if (norm.contains(normalize(e.getValue()))) return e.getKey();
+        }
+        return null;
+    }
+
+    private static String parseSpelFormFlexible(String v) {
+        if (v == null || v.isBlank()) return "vinnare";
+        String n = normalize(v);
+
+        if (n.contains("vem vinner") || n.contains(" vinner") || n.contains(" vinn ")) return "vinnare";
+
+        Matcher m = Pattern.compile("\\bspelform\\s*([a-z0-9]+)").matcher(n);
+        if (m.find()) return m.group(1);
+
+        String[] known = {"vinnare", "plats", "v75", "v86", "gs75", "v64", "v65", "dd", "ld"};
+        for (String k : known) {
+            if (n.contains(k)) return k;
+        }
+
+        String sanitized = n.replaceAll("[^a-z0-9]", "");
+        return sanitized.isBlank() ? "vinnare" : sanitized;
+    }
+
+    private static boolean isAggregatorSpelForm(String s) {
+        if (s == null) return false;
+        String n = s.toLowerCase(Locale.ROOT).trim();
+        return n.equals("trio") || n.equals("tvilling") || n.equals("komb") || n.equals("trippel") || n.equals("triple");
+    }
+
+    private static String parseStarterFlexible(String v) {
+        if (v == null || v.isBlank()) return null;
+        String n = normalize(v);
+        Matcher m = Pattern.compile("(\\d+)\\s*starter").matcher(n);
+        if (m.find()) return m.group(1);
+        Matcher onlyNum = Pattern.compile("^(\\d+)$").matcher(n);
+        if (onlyNum.find()) return onlyNum.group(1);
+        return null;
+    }
+
+    @Tool(name = "pick_winner_across_starters",
+            description = "Välj vinnare genom att väga ihop alla tillgängliga 'starter'-fönster för datum, bana, spelform och lopp. Returnerar topp 3 med motivering.")
+    public List<WinnerSuggestion> pickWinnerAcrossStarters(String dateOrPhrase,
+                                                           String banKodOrTrack,
+                                                           String lapOrPhrase,
+                                                           String spelFormOrPhrase,
+                                                           Integer topN) {
+        Integer startDate = parseDateFlexible(dateOrPhrase);
+        String banKod = resolveBanKodFlexible(banKodOrTrack);
+        String lap = parseLapFlexible(lapOrPhrase);
+        String parsedForm = parseSpelFormFlexible(spelFormOrPhrase);                  //Changed!
+        if (topN == null || topN <= 0) topN = 3;
+
+        if (startDate == null || banKod == null || lap == null) return List.of();
+
+        boolean aggregator = isAggregatorSpelForm(parsedForm);                       //Changed!
+        String effectiveForm = (parsedForm == null ? "vinnare" : parsedForm);          //Changed!
+
+        // 1) Försök med given spelform
+        List<HorseResult> rows = horseResultRepo
+                .findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, effectiveForm);
+
+        // 2) Om aggregator (trio/tvilling/komb) eller 0 träffar: försök med 'vinnare'
+        if (rows.isEmpty() || aggregator) {                                            //Changed!
+            rows = horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, "vinnare"); //Changed!
+            effectiveForm = "vinnare";                                                 //Changed!
+        }
+
+        // 3) Om fortfarande 0: hämta utan spelform (sista fallback)
+        if (rows.isEmpty()) {                                                          //Changed!
+            rows = horseResultRepo.findByStartDateAndBanKodAndLap(startDate, banKod, lap); //Changed!
+            // Behåll effectiveForm="vinnare" för rapportering
+        }
+
+        if (rows.isEmpty()) return List.of();
+
+        final String formForReturn = effectiveForm;                                    //Changed!
+
+        Map<String, List<HorseResult>> byHorse = rows.stream()
+                .collect(Collectors.groupingBy(HorseResult::getNameOfHorse));
+
+        List<WinnerSuggestion> ranked = byHorse.entrySet().stream().map(e -> {
+                    String name = e.getKey();
+                    List<HorseResult> list = e.getValue();
+
+                    List<Integer> starters = new ArrayList<>();
+                    List<Integer> analys = new ArrayList<>();
+                    List<Integer> prest = new ArrayList<>();
+                    List<Integer> tid = new ArrayList<>();
+                    List<Integer> motst = new ArrayList<>();
+
+                    for (HorseResult r : list) {
+                        int s = safeInt(r.getStarter());
+                        starters.add(s);
+                        analys.add(safeInt(r.getProcentAnalys()));
+                        prest.add(safeInt(r.getProcentPrestation()));
+                        tid.add(safeInt(r.getProcentFart()));
+                        motst.add(safeInt(r.getProcentMotstand()));
+                    }
+
+                    double sumW = 0, sumAnalys = 0, sumPrest = 0, sumTid = 0, sumMot = 0;
+                    for (int i = 0; i < starters.size(); i++) {
+                        double w = Math.sqrt(Math.max(1, starters.get(i)));
+                        sumW += w;
+                        sumAnalys += w * analys.get(i);
+                        sumPrest += w * prest.get(i);
+                        sumTid += w * tid.get(i);
+                        sumMot += w * motst.get(i);
+                    }
+
+                    double wAvgAnalys = sumAnalys / sumW;
+                    double mean = analys.stream().mapToDouble(a -> a).average().orElse(0);
+                    double var = analys.stream().mapToDouble(a -> (a - mean) * (a - mean)).average().orElse(0);
+                    double std = Math.sqrt(var);
+
+                    double score = wAvgAnalys - 0.5 * std;
+
+                    int avgA = (int) Math.round(sumAnalys / sumW);
+                    int avgP = (int) Math.round(sumPrest / sumW);
+                    int avgT = (int) Math.round(sumTid / sumW);
+                    int avgM = (int) Math.round(sumMot / sumW);
+
+                    String startersStr = starters.stream().sorted().map(String::valueOf).distinct()
+                            .collect(Collectors.joining(","));
+
+                    return new WinnerSuggestion(
+                            name, banKod, lap, startDate, formForReturn,                     //Changed!
+                            score, starters.size(), startersStr, avgA, avgP, avgT, avgM
+                    );
+                }).sorted((a, b) -> Double.compare(b.score, a.score))
+                .limit(topN)
+                .toList();
+
+        System.out.println("pick_winner_across_starters: date=" + startDate + ", banKod=" + banKod + ", lap=" + lap + ", formIn=" + parsedForm + " -> using=" + formForReturn + " rows=" + rows.size()); //Changed!
+
+        return ranked;
+    }
+
+    //Changed!
+    @Tool(
+            name = "pick_winner_by_swedish_phrase",
+            description = "Tolka en svensk fras med datum, bana, spelform och lopp (utan antal starter) och välj topp N över alla starter. Ex: 'Vem vinner på Solvalla 2025-09-03 med spelform vinnare i lopp 7?'"
+    )
+    public List<WinnerSuggestion> pickWinnerBySwedishPhrase(String phrase, Integer topN) { //Changed!
+        if (topN == null || topN <= 0) topN = 3; //Changed!
+        // Trick: skicka frasen till alla parse-parametrar i befintliga metoden
+
+
+        return pickWinnerAcrossStarters(phrase, phrase, phrase, phrase, topN); //Changed!
+    }
+
+    @Tool(description = "Sök fram en häst och dess värden baserat på namnet på hästen")
+    public List<HorseResult> searchByHorseName(String nameFragment) {
+        return horseResultRepo.findByNameOfHorseContainingIgnoreCase(nameFragment);
     }
 
     @Tool(description = "Visa en hästs Travanalys odds och värden sorterade efter datum (senaste först).")
@@ -86,13 +369,10 @@ public class TravTools {
             return List.of();
         }
 
-        // Ny logik: om "speltips" nämns utan siffra => defaulta till 1 (sant).
         Integer tipsValue = parseExplicitTipsValue(norm);
         if (tipsValue == null && containsWordSpeltips(norm)) tipsValue = 1;
 
         if (tipsValue == null) {
-            // Om inget "speltips" hittas, visa inget (eller hela loppet—välj policy).
-            // Jag returnerar tomt för att vara tydlig.
             System.out.println("Inget explicit eller implicit speltipsvärde angivet.");
             return List.of();
         }
@@ -113,141 +393,85 @@ public class TravTools {
         return horseResultRepo.findByStartDateAndBanKodAndLapAndTips(date, banKod, lap, 1);
     }
 
-    //////////////////////////////////////777/helpers
+    @Tool(name = "results_by_date_track_lap_form_starter",
+            description = "Hämta hästar för datum, bana, spelform, lopp och antal starter. Tar naturligt datum/bana/lopp (ex. '2025-09-02', 'Axevalla'/'S', 'lopp 3'), spelform (ex. 'vinnare', 'V75') och starter (ex. '5'). Sortera själv i klienten om du vill.")
+    public List<HorseResult> resultsByDateTrackLapFormStarter(String dateOrPhrase,
+                                                              String banKodOrTrack,
+                                                              String lapOrPhrase,
+                                                              String spelFormOrPhrase,
+                                                              String starterOrPhrase) {
+        Integer startDate = parseDateFlexible(dateOrPhrase);            //Changed!
+        String banKod = resolveBanKodFlexible(banKodOrTrack);       //Changed!
+        String lap = parseLapFlexible(lapOrPhrase);              //Changed!
+        String spelForm = parseSpelFormFlexible(spelFormOrPhrase);
+        String starter = parseStarterFlexible(starterOrPhrase);
+
+        if (startDate == null || banKod == null || lap == null || spelForm == null || starter == null) {
+            return List.of();
+        }
+        return horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCaseAndStarter(
+                startDate, banKod, lap, spelForm, starter); //Changed!
+    }
+
+    @Tool(name = "results_by_swedish_phrase_with_form_and_starter",
+            description = "Tolka en svensk fras med datum, bana, spelform, lopp och antal starter. Ex: 'Vem vinner på Axevalla 2025-09-02 med spelform vinnare i lopp 3 med 5 starter?'")
+    public List<HorseResult> resultsBySwedishPhraseWithFormAndStarter(String phrase) {
+        if (phrase == null || phrase.isBlank()) return List.of(); //Changed!
+        String norm = normalize(phrase);                           //Changed!
+
+        Integer date = parseDateFromSwedish(norm);                 //Changed!
+        String banKod = toBanKod(norm);                            //Changed!
+        String lap = parseLap(norm);                               //Changed!
+        String spelForm = parseSpelFormFlexible(norm);             //Changed!
+        String starter = parseStarterFlexible(norm);               //Changed!
+
+        if (date == null || banKod == null || lap == null || spelForm == null || starter == null) {
+            return List.of();
+        }
+        return horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCaseAndStarter(
+                date, banKod, lap, spelForm, starter);
+    }
+
     private int parse(String val) {
-        try { return Integer.parseInt(val); } catch (Exception e) { return -1; }
-    }
-
-    // Kod -> ban-namn (befintlig)
-    private static final Map<String, String> tackToBanKod = Map.ofEntries(
-            Map.entry("Ar", "Arvika"),     Map.entry("Ax", "Axevalla"),
-            Map.entry("B",  "Bergsåker"),  Map.entry("Bo", "Boden"),
-            Map.entry("Bs", "Bollnäs"),    Map.entry("D",  "Dannero"),
-            Map.entry("Dj", "Dala Järna"), Map.entry("E",  "Eskilstuna"),
-            Map.entry("J",  "Jägersro"),   Map.entry("F",  "Färjestad"),
-            Map.entry("G",  "Gävle"),      Map.entry("Gt", "Göteborg trav"),
-            Map.entry("H",  "Hagmyren"),   Map.entry("Hd", "Halmstad"),
-            Map.entry("Hg", "Hoting"),     Map.entry("Kh", "Karlshamn"),
-            Map.entry("Kr", "Kalmar"),     Map.entry("L",  "Lindesberg"),
-            Map.entry("Ly", "Lycksele"),   Map.entry("Mp", "Mantorp"),
-            Map.entry("Ov", "Oviken"),     Map.entry("Ro", "Romme"),
-            Map.entry("Rä", "Rättvik"),    Map.entry("S",  "Solvalla"),
-            Map.entry("Sk", "Skellefteå"), Map.entry("Sä", "Solänget"),
-            Map.entry("Ti", "Tingsryd"),   Map.entry("Tt", "Täby Trav"),
-            Map.entry("U",  "Umåker"),     Map.entry("Vd", "Vemdalen"),
-            Map.entry("Vg", "Vaggeryd"),   Map.entry("Vi", "Visby"),
-            Map.entry("Å",  "Åby"),        Map.entry("Åm", "Åmål"),
-            Map.entry("År", "Årjäng"),     Map.entry("Ö",  "Örebro"),
-            Map.entry("Ös", "Östersund")
-    );
-
-    private static final Map<String,Integer> svMonth = Map.ofEntries(
-            Map.entry("januari",1), Map.entry("februari",2), Map.entry("mars",3), Map.entry("april",4),
-            Map.entry("maj",5), Map.entry("juni",6), Map.entry("juli",7), Map.entry("augusti",8),
-            Map.entry("september",9), Map.entry("oktober",10), Map.entry("november",11), Map.entry("december",12)
-    );
-
-    private static String normalize(String s) {
-        if (s == null) return null;
-        String n = Normalizer.normalize(s, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", ""); // ta bort diakritik
-        return n.toLowerCase(Locale.ROOT).trim();
-    }
-
-    private static boolean containsWordSpeltips(String norm) {
-        return norm.contains("speltips"); // enkelt och robust
-    }
-
-    private static Integer parseExplicitTipsValue(String norm) {
-        // Fångar "speltips 1", "tips=0", "speltips: 1", "speltips ar 1" etc
-        Matcher m = Pattern.compile("(speltips|tips)\\s*(=|ar|är|:)?\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(norm);
-        if (m.find()) {
-            try { return Integer.parseInt(m.group(3)); } catch (Exception ignored) {}
+        try {
+            return Integer.parseInt(val);
+        } catch (Exception e) {
+            return -1;
         }
-        return null;
     }
 
-    // Utökad: fångar både "lopp 5" och bara "5"
-    private static String parseLap(String norm) {
-        // 1) Helst "lopp 5"
-        Matcher m1 = Pattern.compile("\\blopp\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(norm);
-        if (m1.find()) return m1.group(1);
+    public static class WinnerSuggestion { //Changed!
+        public String name;                //Changed!
+        public String banKod;              //Changed!
+        public String lap;                 //Changed!
+        public Integer startDate;          //Changed!
+        public String spelForm;            //Changed!
+        public double score;               //Changed!
+        public int variants;               //Changed!
+        public String starters;            //Changed!
+        public int avgAnalys;              //Changed!
+        public int avgPrestation;          //Changed!
+        public int avgTid;                 //Changed!
+        public int avgMotstand;            //Changed!
 
-        // 2) Fallback: sista 1–2-siffriga talet i strängen (undviker årtal som 2025)
-        Matcher m2 = Pattern.compile("(\\d{1,2})(?!\\d)").matcher(norm);
-        String last = null;
-        while (m2.find()) last = m2.group(1);
-        return last;
-    }
+        public WinnerSuggestion() {
+        }       //Changed!
 
-    // === Nya flex-hjälpare som återanvänds i fler metoder ===
-    private static Integer parseDateFlexible(String anyDate) {
-        if (anyDate == null || anyDate.isBlank()) return null;
-        String norm = normalize(anyDate);
-        Integer fromWords = parseDateFromSwedish(norm);
-        if (fromWords != null) return fromWords;
-        // Fallback: YYYY-MM-DD, YYYY/MM/DD, YYYY MM DD eller YYYYMMDD
-        Matcher ymdDigits = Pattern.compile("(\\d{4})[-/ ]?(\\d{2})[-/ ]?(\\d{2})").matcher(norm);
-        if (ymdDigits.find()) {
-            int year = Integer.parseInt(ymdDigits.group(1));
-            int month = Integer.parseInt(ymdDigits.group(2));
-            int day = Integer.parseInt(ymdDigits.group(3));
-            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return year*10000 + month*100 + day;
+        public WinnerSuggestion(String name, String banKod, String lap, Integer startDate, String spelForm,
+                                double score, int variants, String starters,
+                                int avgAnalys, int avgPrestation, int avgTid, int avgMotstand) { //Changed!
+            this.name = name;
+            this.banKod = banKod;
+            this.lap = lap;
+            this.startDate = startDate;
+            this.spelForm = spelForm;
+            this.score = score;
+            this.variants = variants;
+            this.starters = starters;
+            this.avgAnalys = avgAnalys;
+            this.avgPrestation = avgPrestation;
+            this.avgTid = avgTid;
+            this.avgMotstand = avgMotstand;
         }
-        return null;
-    }
-
-    private static String parseLapFlexible(String lapOrPhrase) {
-        if (lapOrPhrase == null || lapOrPhrase.isBlank()) return null;
-        return parseLap(normalize(lapOrPhrase));
-    }
-
-    private static String resolveBanKodFlexible(String banKodOrTrack) {
-        if (banKodOrTrack == null || banKodOrTrack.isBlank()) return null;
-        String norm = normalize(banKodOrTrack);
-        return toBanKod(norm);
-    }
-
-    // Datumparser för svenska fraser
-    private static Integer parseDateFromSwedish(String norm) {
-        if (norm == null) return null;
-        // Ex 1: "2025 17 juli" (år dag månad)
-        Matcher ydm = Pattern.compile("(\\d{4})\\D{0,5}(\\d{1,2})\\D{0,5}(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)").matcher(norm);
-        if (ydm.find()) {
-            int year = Integer.parseInt(ydm.group(1));
-            int day = Integer.parseInt(ydm.group(2));
-            int month = svMonth.getOrDefault(ydm.group(3), 0);
-            if (month >= 1 && day >= 1 && day <= 31) return year*10000 + month*100 + day;
-        }
-        // Ex 2: "17 juli 2025" (dag månad år)
-        Matcher dmy = Pattern.compile("(\\d{1,2})\\D{0,5}(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\\D{0,5}(\\d{4})").matcher(norm);
-        if (dmy.find()) {
-            int day = Integer.parseInt(dmy.group(1));
-            int month = svMonth.getOrDefault(dmy.group(2), 0);
-            int year = Integer.parseInt(dmy.group(3));
-            if (month >= 1 && day >= 1 && day <= 31) return year*10000 + month*100 + day;
-        }
-        // Ex 3: "2025-07-17" eller "20250717"
-        Matcher ymdDigits = Pattern.compile("(\\d{4})[-/ ]?(\\d{2})[-/ ]?(\\d{2})").matcher(norm);
-        if (ymdDigits.find()) {
-            int year = Integer.parseInt(ymdDigits.group(1));
-            int month = Integer.parseInt(ymdDigits.group(2));
-            int day = Integer.parseInt(ymdDigits.group(3));
-            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return year*10000 + month*100 + day;
-        }
-        return null;
-    }
-
-    private static String toBanKod(String norm) {
-        if (norm == null) return null;
-        // 1) om användaren anger bankod direkt (t.ex. "S")
-        for (String code : tackToBanKod.keySet()) {
-            if (norm.matches(".*\\b" + normalize(code) + "\\b.*")) return code;
-        }
-        // 2) fullständigt namn, t.ex. "Solvalla" -> "S"
-        for (Map.Entry<String,String> e : tackToBanKod.entrySet()) {
-            if (norm.contains(normalize(e.getValue()))) return e.getKey();
-        }
-        return null;
     }
 }

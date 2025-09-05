@@ -86,12 +86,12 @@ public class TravTools {
     );
     private final HorseResultRepo horseResultRepo;
 
-    private static int safeInt(String s) { //Changed!
+    private static int safeInt(String s) {
         try {
             return Integer.parseInt(s.replaceAll("[^0-9-]", ""));
         } catch (Exception e) {
             return 0;
-        } //Changed!
+        }
     }
 
     private static String normalize(String s) {
@@ -238,33 +238,33 @@ public class TravTools {
         Integer startDate = parseDateFlexible(dateOrPhrase);
         String banKod = resolveBanKodFlexible(banKodOrTrack);
         String lap = parseLapFlexible(lapOrPhrase);
-        String parsedForm = parseSpelFormFlexible(spelFormOrPhrase);                  //Changed!
+        String parsedForm = parseSpelFormFlexible(spelFormOrPhrase);
         if (topN == null || topN <= 0) topN = 3;
 
         if (startDate == null || banKod == null || lap == null) return List.of();
 
-        boolean aggregator = isAggregatorSpelForm(parsedForm);                       //Changed!
-        String effectiveForm = (parsedForm == null ? "vinnare" : parsedForm);          //Changed!
+        boolean aggregator = isAggregatorSpelForm(parsedForm);
+        String effectiveForm = (parsedForm == null ? "vinnare" : parsedForm);
 
         // 1) Försök med given spelform
         List<HorseResult> rows = horseResultRepo
                 .findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, effectiveForm);
 
         // 2) Om aggregator (trio/tvilling/komb) eller 0 träffar: försök med 'vinnare'
-        if (rows.isEmpty() || aggregator) {                                            //Changed!
-            rows = horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, "vinnare"); //Changed!
-            effectiveForm = "vinnare";                                                 //Changed!
+        if (rows.isEmpty() || aggregator) {
+            rows = horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, "vinnare");
+            effectiveForm = "vinnare";
         }
 
         // 3) Om fortfarande 0: hämta utan spelform (sista fallback)
-        if (rows.isEmpty()) {                                                          //Changed!
-            rows = horseResultRepo.findByStartDateAndBanKodAndLap(startDate, banKod, lap); //Changed!
+        if (rows.isEmpty()) {
+            rows = horseResultRepo.findByStartDateAndBanKodAndLap(startDate, banKod, lap);
             // Behåll effectiveForm="vinnare" för rapportering
         }
 
         if (rows.isEmpty()) return List.of();
 
-        final String formForReturn = effectiveForm;                                    //Changed!
+        final String formForReturn = effectiveForm;
 
         Map<String, List<HorseResult>> byHorse = rows.stream()
                 .collect(Collectors.groupingBy(HorseResult::getNameOfHorse));
@@ -314,29 +314,27 @@ public class TravTools {
                             .collect(Collectors.joining(","));
 
                     return new WinnerSuggestion(
-                            name, banKod, lap, startDate, formForReturn,                     //Changed!
+                            name, banKod, lap, startDate, formForReturn,
                             score, starters.size(), startersStr, avgA, avgP, avgT, avgM
                     );
                 }).sorted((a, b) -> Double.compare(b.score, a.score))
                 .limit(topN)
                 .toList();
 
-        System.out.println("pick_winner_across_starters: date=" + startDate + ", banKod=" + banKod + ", lap=" + lap + ", formIn=" + parsedForm + " -> using=" + formForReturn + " rows=" + rows.size()); //Changed!
+        System.out.println("pick_winner_across_starters: date=" + startDate + ", banKod=" + banKod + ", lap=" + lap + ", formIn=" + parsedForm + " -> using=" + formForReturn + " rows=" + rows.size());
 
         return ranked;
     }
 
-    //Changed!
+
     @Tool(
             name = "pick_winner_by_swedish_phrase",
             description = "Tolka en svensk fras med datum, bana, spelform och lopp (utan antal starter) och välj topp N över alla starter. Ex: 'Vem vinner på Solvalla 2025-09-03 med spelform vinnare i lopp 7?'"
     )
-    public List<WinnerSuggestion> pickWinnerBySwedishPhrase(String phrase, Integer topN) { //Changed!
-        if (topN == null || topN <= 0) topN = 3; //Changed!
-        // Trick: skicka frasen till alla parse-parametrar i befintliga metoden
+    public List<WinnerSuggestion> pickWinnerBySwedishPhrase(String phrase, Integer topN) {
+        if (topN == null || topN <= 0) topN = 3;
 
-
-        return pickWinnerAcrossStarters(phrase, phrase, phrase, phrase, topN); //Changed!
+        return pickWinnerAcrossStarters(phrase, phrase, phrase, phrase, topN);
     }
 
     @Tool(description = "Sök fram en häst och dess värden baserat på namnet på hästen")
@@ -400,9 +398,9 @@ public class TravTools {
                                                               String lapOrPhrase,
                                                               String spelFormOrPhrase,
                                                               String starterOrPhrase) {
-        Integer startDate = parseDateFlexible(dateOrPhrase);            //Changed!
-        String banKod = resolveBanKodFlexible(banKodOrTrack);       //Changed!
-        String lap = parseLapFlexible(lapOrPhrase);              //Changed!
+        Integer startDate = parseDateFlexible(dateOrPhrase);
+        String banKod = resolveBanKodFlexible(banKodOrTrack);
+        String lap = parseLapFlexible(lapOrPhrase);
         String spelForm = parseSpelFormFlexible(spelFormOrPhrase);
         String starter = parseStarterFlexible(starterOrPhrase);
 
@@ -410,20 +408,20 @@ public class TravTools {
             return List.of();
         }
         return horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCaseAndStarter(
-                startDate, banKod, lap, spelForm, starter); //Changed!
+                startDate, banKod, lap, spelForm, starter);
     }
 
     @Tool(name = "results_by_swedish_phrase_with_form_and_starter",
             description = "Tolka en svensk fras med datum, bana, spelform, lopp och antal starter. Ex: 'Vem vinner på Axevalla 2025-09-02 med spelform vinnare i lopp 3 med 5 starter?'")
     public List<HorseResult> resultsBySwedishPhraseWithFormAndStarter(String phrase) {
-        if (phrase == null || phrase.isBlank()) return List.of(); //Changed!
-        String norm = normalize(phrase);                           //Changed!
+        if (phrase == null || phrase.isBlank()) return List.of();
+        String norm = normalize(phrase);
 
-        Integer date = parseDateFromSwedish(norm);                 //Changed!
-        String banKod = toBanKod(norm);                            //Changed!
-        String lap = parseLap(norm);                               //Changed!
-        String spelForm = parseSpelFormFlexible(norm);             //Changed!
-        String starter = parseStarterFlexible(norm);               //Changed!
+        Integer date = parseDateFromSwedish(norm);
+        String banKod = toBanKod(norm);
+        String lap = parseLap(norm);
+        String spelForm = parseSpelFormFlexible(norm);
+        String starter = parseStarterFlexible(norm);
 
         if (date == null || banKod == null || lap == null || spelForm == null || starter == null) {
             return List.of();
@@ -440,26 +438,26 @@ public class TravTools {
         }
     }
 
-    public static class WinnerSuggestion { //Changed!
-        public String name;                //Changed!
-        public String banKod;              //Changed!
-        public String lap;                 //Changed!
-        public Integer startDate;          //Changed!
-        public String spelForm;            //Changed!
-        public double score;               //Changed!
-        public int variants;               //Changed!
-        public String starters;            //Changed!
-        public int avgAnalys;              //Changed!
-        public int avgPrestation;          //Changed!
-        public int avgTid;                 //Changed!
-        public int avgMotstand;            //Changed!
+    public static class WinnerSuggestion {
+        public String name;
+        public String banKod;
+        public String lap;
+        public Integer startDate;
+        public String spelForm;
+        public double score;
+        public int variants;
+        public String starters;
+        public int avgAnalys;
+        public int avgPrestation;
+        public int avgTid;
+        public int avgMotstand;
 
         public WinnerSuggestion() {
-        }       //Changed!
+        }
 
         public WinnerSuggestion(String name, String banKod, String lap, Integer startDate, String spelForm,
                                 double score, int variants, String starters,
-                                int avgAnalys, int avgPrestation, int avgTid, int avgMotstand) { //Changed!
+                                int avgAnalys, int avgPrestation, int avgTid, int avgMotstand) {
             this.name = name;
             this.banKod = banKod;
             this.lap = lap;

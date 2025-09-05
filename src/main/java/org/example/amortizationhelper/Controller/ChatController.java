@@ -90,6 +90,5 @@ public class ChatController {
                 .content();
         //structured output
         //conversation ID för att alltid skriva HEJ SIMON
-        //VIDEO DAN VEGA !
     }
 }

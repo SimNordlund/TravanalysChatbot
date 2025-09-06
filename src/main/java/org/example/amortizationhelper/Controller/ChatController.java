@@ -23,9 +23,15 @@ import reactor.core.publisher.Flux;
 
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.UUID;
+
 
 @RestController
 public class ChatController {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
     private final ChatClient chatClient;
 
@@ -84,11 +90,21 @@ public class ChatController {
     @GetMapping("/chat-stream")
     public Flux<String> chatStream(@RequestParam("message") String message) {
         String clean = message.replaceAll("\\p{C}", "");
+
+        String requestId = UUID.randomUUID().toString();
+        log.info("[{}] User message: {}", requestId, clean);
+        StringBuilder responseBuf = new StringBuilder();
+
         return chatClient.prompt()
                 .user(clean)
                 .stream()
-                .content();
-        //structured output
-        //conversation ID för att alltid skriva HEJ SIMON
+                .content()
+                .doOnNext(chunk -> responseBuf.append(chunk))
+                .doOnComplete(() -> {
+                    log.info("[{}] Assistant response: {}", requestId, responseBuf);
+                })
+                .doOnError(e -> {
+                    log.error("[{}] Chat stream error", requestId, e);
+                });
     }
 }

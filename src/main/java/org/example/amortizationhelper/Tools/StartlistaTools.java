@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 public class StartlistaTools {
 
-    /* private final StartlistaRepo startlistaRepo;
+     private final StartlistaRepo startlistaRepo;
 
     @Tool(description = "Värden för en häst som tillhör en startlista")
     public Startlista getStartlistaValue(Long id) {
@@ -36,7 +36,7 @@ public class StartlistaTools {
                 startlistaRepo.findByStartDateAndBanKodAndLap(startDate, normBanKod, lapInt);
         System.out.println("[startlista_by_date_track_lap] d=" + startDate + " bana=" + normBanKod + " lap=" + lapInt + " -> " + results.size());
         return results;
-    } */
+    }
 
 
 }

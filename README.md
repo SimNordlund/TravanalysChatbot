@@ -63,6 +63,6 @@ Se application.properties för alla inställningar kring modell, retry-logik, po
 Bidra / Förslag
 Vill du bidra eller har förslag på förbättringar? Skapa gärna en issue eller PR direkt i repot.
 
-Travolta är skapad för att göra travvärlden mer öppen, begriplig och transparent – oavsett om du är nybörjare eller rutinerad travnörd.
+Travolta är skapad för att göra travvärlden mer öppen, begriplig och transparent oavsett om du är nybörjare eller rutinerad travnörd.
 
 Frågor? Hör av dig!

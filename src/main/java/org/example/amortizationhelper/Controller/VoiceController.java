@@ -44,7 +44,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/voice")
-@CrossOrigin(origins = "*") // lås ner i prod
+@CrossOrigin(origins = "*")
 public class VoiceController {
 
     private final OpenAiAudioTranscriptionModel sttModel;
@@ -63,7 +63,6 @@ public class VoiceController {
         this.sttModel = sttModel;
         this.ttsModel = ttsModel;
 
-        // Bygg samma RAG+minne+tools som i ChatController
         var retriever = VectorStoreDocumentRetriever.builder()
                 .vectorStore(vectorStore)
                 .build();
@@ -103,7 +102,6 @@ public class VoiceController {
                 .build();
     }
 
-    // === A) FULL pipeline: STT -> Chat (RAG) -> TTS (en fil) =================
     @PostMapping(
             value = "/chat",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -123,7 +121,6 @@ public class VoiceController {
         file.transferTo(tmp);
 
         try {
-            // 1) STT
             var trOpts = OpenAiAudioTranscriptionOptions.builder()
                     .responseFormat(OpenAiAudioApi.TranscriptResponseFormat.TEXT)
                     .language("sv")
@@ -134,7 +131,6 @@ public class VoiceController {
             var trResp = sttModel.call(trPrompt);
             String userText = trResp.getResult().getOutput();
 
-            // 2) Chat (lägg gärna ett kort röstläge i system om du vill)
             String answerText = chatClient.prompt()
                     .system("""
                         Du är i röstläge. Svara kort, utan markdown, på tydlig svenska.
@@ -144,7 +140,6 @@ public class VoiceController {
                     .call()
                     .content();
 
-            // 3) TTS (MP3)
             OpenAiAudioApi.SpeechRequest.Voice voiceEnum;
             try { voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.valueOf(voiceName.toUpperCase()); }
             catch (Exception e) { voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.ALLOY; }
@@ -167,7 +162,6 @@ public class VoiceController {
         }
     }
 
-    // === B) STT-only: multipart -> { text } ===================================
     @PostMapping(
             value = "/transcribe",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -200,7 +194,6 @@ public class VoiceController {
         }
     }
 
-    // === C) TTS-only: { text, voice?, speed? } -> { audioBase64 } =============
     public static record TtsRequest(String text, String voice, Float speed) {}
 
     @PostMapping(

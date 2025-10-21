@@ -48,7 +48,6 @@ public class TravTools {
 
     private final HorseResultRepo horseResultRepo;
 
-    // ====== Verktyg som redan fanns ======
 
     @Tool(description = "Hämta värden om hästar baserat på ett id.")
     public HorseResult getHorseValues(Long id) {
@@ -107,17 +106,16 @@ public class TravTools {
         boolean aggregator = isAggregatorSpelForm(parsedForm);
         String effectiveForm = (parsedForm == null ? "vinnare" : parsedForm);
 
-        // 1) Försök med given spelform
+
         List<HorseResult> rows = horseResultRepo
                 .findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, effectiveForm);
 
-        // 2) Om aggregator (trio/tvilling/komb) eller 0 träffar: försök med 'vinnare'
+
         if (rows.isEmpty() || aggregator) {
             rows = horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, "vinnare");
             effectiveForm = "vinnare";
         }
 
-        // 3) Om fortfarande 0: hämta utan spelform (sista fallback)
         if (rows.isEmpty()) {
             rows = horseResultRepo.findByStartDateAndBanKodAndLap(startDate, banKod, lap);
             // Behåll effectiveForm="vinnare" för rapportering
@@ -290,8 +288,6 @@ public class TravTools {
                 date, banKod, lap, spelForm, starter);
     }
 
-    // ====== NYA/UPPGRADERADE PARSERS ======
-
     private static Integer parseDateRelative(String norm) {
         ZoneId tz = ZoneId.of("Europe/Stockholm");
         LocalDate base = LocalDate.now(tz);
@@ -356,8 +352,6 @@ public class TravTools {
         return parseLap(norm);
     }
 
-    // ====== DISCOVERY-VERKTYG ======
-
     @Tool(name = "dates_all", description = "Lista tillgängliga datum (senaste först).")
     public List<Integer> datesAll() {
         return horseResultRepo.distinctDatesAll();
@@ -404,8 +398,6 @@ public class TravTools {
         return horseResultRepo.distinctStartersByDateBanKodFormLap(d, b, f, lap);
     }
 
-    // ====== FÄLT & TOPPLISTOR ======
-
     @Tool(name = "field_sorted", description = "Hämta hela fältet sorterat på Analys (desc) för datum + bana + lopp/avd (+ ev. spelform).")
     public List<HorseResult> fieldSorted(String dateOrPhrase, String banKodOrTrack, String lapOrAvd, String spelFormOrNull) {
         Integer d = parseDateFlexible(dateOrPhrase);
@@ -438,8 +430,6 @@ public class TravTools {
                 .toList();
     }
 
-    // ====== SAMMANFATTNING / ”BANKER”-HJÄLP ======
-
     @Tool(name = "best_per_lopp", description = "Ge bästa häst (högst Analys) per lopp/avd för datum + bana (+ ev. spelform). Returnerar en rad per avdelning.")
     public List<PerLoppBest> bestPerLopp(String dateOrPhrase, String banKodOrTrack, String spelFormOrNull) {
         Integer d = parseDateFlexible(dateOrPhrase);
@@ -468,8 +458,6 @@ public class TravTools {
         public PerLoppBest(String lap, String name, int analys, Integer nr) { this.lap = lap; this.name = name; this.analys = analys; this.nr = nr; }
     }
 
-    // ====== SMART FRASRUTNING (”avd” m.m.) ======
-
     @Tool(name = "pick_winner_by_phrase_smart", description = "Som pick_winner_by_swedish_phrase men förstår även 'avd 3' och 'v75-1'.")
     public List<WinnerSuggestion> pickWinnerByPhraseSmart(String phrase, Integer topN) {
         if (topN == null || topN <= 0) topN = 3;
@@ -482,8 +470,7 @@ public class TravTools {
         return pickWinnerBySwedishPhrase(effective, topN);
     }
 
-    // ====== Hjälpare (fanns redan) ======
-
+    //helpers
     private static int safeInt(String s) {
         try {
             return Integer.parseInt(s.replaceAll("[^0-9-]", ""));
@@ -613,8 +600,6 @@ public class TravTools {
             return -1;
         }
     }
-
-    // ====== DTO ======
 
     public static class WinnerSuggestion {
         public String name;

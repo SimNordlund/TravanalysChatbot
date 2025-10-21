@@ -53,8 +53,6 @@ public interface RoiRepo extends JpaRepository<Roi, Long> {
     List<String> distinctLapsByDateAndBanKod(@Param("startDate") Integer startDate,
                                              @Param("banKod") String banKod);
 
-    // === Fält-hämtningar ===
-
     @Query("""
            select r from Roi r
            join fetch r.rank hr
@@ -84,8 +82,6 @@ public interface RoiRepo extends JpaRepository<Roi, Long> {
                                      @Param("banKod") String banKod,
                                      @Param("lap") String lap,
                                      @Param("nr") Integer nr);
-
-    // === Summor ===
 
     @Query("""
            select coalesce(sum(r.roiTotalt), 0)

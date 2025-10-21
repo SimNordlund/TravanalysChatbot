@@ -19,8 +19,6 @@ public class StartlistaTools {
 
     private final StartlistaRepo startlistaRepo;
 
-    // ==== BEFINTLIGA METODER ====
-
     @Tool(description = "Värden för en häst som tillhör en startlista")
     public Startlista getStartlistaValue(Long id) {
         return startlistaRepo.findById(id).orElse(null);
@@ -45,9 +43,6 @@ public class StartlistaTools {
         return results;
     }
 
-    // ==== NY FUNKTIONALITET (FLEX-PARSNING, DISCOVERY, SORTERADE FÄLT) ====
-
-    // --- Discovery (för att guida användaren) ---
 
     @Tool(name = "start_dates_all", description = "Lista alla datum som finns i Startlista (senaste först).")
     public List<Integer> startDatesAll() {
@@ -85,8 +80,6 @@ public class StartlistaTools {
         if (d == null || b == null) return List.of();
         return startlistaRepo.distinctDistansByDateTrack(d, b);
     }
-
-    // --- Fält/Startlista hämtning ---
 
     @Tool(name = "start_field_sorted", description = "Hämta hela startfältet (datum + bana + lopp) sorterat på startnummer (nr).")
     public List<Startlista> startFieldSorted(String dateOrPhrase, String banKodOrTrack, String lapOrPhrase) {
@@ -149,8 +142,7 @@ public class StartlistaTools {
         return out;
     }
 
-    // ==== HJÄLPKLASSER (DTO) ====
-
+//helpers
     public static class StartRow {
         public Integer nr;
         public String namn;
@@ -162,8 +154,6 @@ public class StartlistaTools {
             this.nr = nr; this.namn = namn; this.kusk = kusk; this.spar = spar; this.distans = distans; this.lopp = lopp;
         }
     }
-
-    // ==== PARSING & NORMALISERING (lokalt, oberoende av TravTools) ====
 
     private static final Map<String, String> trackToBanKod = Map.ofEntries(
             Map.entry("Ar", "Arvika"),     Map.entry("Ax", "Axevalla"),

@@ -83,8 +83,6 @@ public class RoiTools {
         return rows.stream().limit(topN).map(this::toDto).toList();
     }
 
-    // ===== Summor =====
-
     @Tool(name = "roi_total_by_date_track",
             description = "Summera ROI Totalt för alla hästar på ett datum och bana. Accepterar YYYYMMDD, YYYY-MM-DD eller svensk fras (t.ex. '17 juli 2025') samt bannamn/bankod.")
     public BigDecimal roiTotalByDateAndTrack(String date, String banKodOrTrack) {
@@ -161,8 +159,6 @@ public class RoiTools {
                 .toList();
     }
 
-    // ===== DTOs =====
-
     public record RoiDto( //Oförändrad struktur
                           String horseName,
                           Integer numberOfHorse,
@@ -193,8 +189,6 @@ public class RoiTools {
         return s;
     }
 
-    // ===== Hjälpare =====
-
     private RoiDto toDto(Roi r) {
         var hr = r.getRank();
         return new RoiDto(
@@ -222,8 +216,6 @@ public class RoiTools {
     private static BigDecimal nz(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
     }
-
-    // === Datum/bana/lopp-parsning (utökad, i linje med TravTools) ===
 
     private Integer toIntDateFlexible(String date) {
         if (date == null || date.isBlank()) return null;
@@ -272,8 +264,6 @@ public class RoiTools {
         if (avd != null) return avd;
         return parseLap(n);
     }
-
-    // ===== Parsers (svenska datum, avd, mm) =====
 
     private static final Map<String,Integer> svMonth = Map.ofEntries(
             Map.entry("januari",1), Map.entry("februari",2), Map.entry("mars",3), Map.entry("april",4),

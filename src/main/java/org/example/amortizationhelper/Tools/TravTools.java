@@ -470,7 +470,7 @@ public class TravTools {
         return pickWinnerBySwedishPhrase(effective, topN);
     }
 
-    //helpers
+
     private static int safeInt(String s) {
         try {
             return Integer.parseInt(s.replaceAll("[^0-9-]", ""));

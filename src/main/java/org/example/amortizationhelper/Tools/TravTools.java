@@ -48,6 +48,29 @@ public class TravTools {
 
     private final HorseResultRepo horseResultRepo;
 
+    // ------------------------------------------------------------
+    // Starter=0 (aggregerat) prioritet
+    // ------------------------------------------------------------
+
+    private static boolean isStarterZero(HorseResult r) { //Changed!
+        return safeInt(r.getStarter()) == 0; //Changed!
+    }
+
+    private static List<HorseResult> preferStarterZero(List<HorseResult> rows) { //Changed!
+        if (rows == null || rows.isEmpty()) return rows; //Changed!
+        List<HorseResult> zero = rows.stream() //Changed!
+                .filter(TravTools::isStarterZero) //Changed!
+                .toList(); //Changed!
+        return zero.isEmpty() ? rows : zero; //Changed!
+    }
+
+    private static int lapKey(String lap) { //Changed!
+        try { return Integer.parseInt(lap); } catch (Exception e) { return Integer.MAX_VALUE; } //Changed!
+    }
+
+    // ------------------------------------------------------------
+    // Basic tools
+    // ------------------------------------------------------------
 
     @Tool(description = "Hämta värden om hästar baserat på ett id.")
     public HorseResult getHorseValues(Long id) {
@@ -106,19 +129,21 @@ public class TravTools {
         boolean aggregator = isAggregatorSpelForm(parsedForm);
         String effectiveForm = (parsedForm == null ? "vinnare" : parsedForm);
 
-
         List<HorseResult> rows = horseResultRepo
                 .findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, effectiveForm);
 
+        rows = preferStarterZero(rows); //Changed!
 
         if (rows.isEmpty() || aggregator) {
+            effectiveForm = "vinnare"; //Changed!
             rows = horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, "vinnare");
-            effectiveForm = "vinnare";
+            rows = preferStarterZero(rows); //Changed!
         }
 
         if (rows.isEmpty()) {
             rows = horseResultRepo.findByStartDateAndBanKodAndLap(startDate, banKod, lap);
-            // Behåll effectiveForm="vinnare" för rapportering
+            rows = preferStarterZero(rows); //Changed!
+            effectiveForm = "vinnare"; //Changed!
         }
 
         if (rows.isEmpty()) return List.of();
@@ -407,6 +432,7 @@ public class TravTools {
         if (d == null || b == null || lap == null) return List.of();
 
         List<HorseResult> rows = horseResultRepo.findField(d, b, lap, f);
+        rows = preferStarterZero(rows); //Changed!
         return rows.stream()
                 .sorted(Comparator.comparingInt((HorseResult r) -> safeInt(r.getProcentAnalys())).reversed())
                 .toList();
@@ -441,6 +467,7 @@ public class TravTools {
         List<PerLoppBest> out = new ArrayList<>();
         for (String lap : laps) {
             List<HorseResult> field = horseResultRepo.findField(d, b, lap, f);
+            field = preferStarterZero(field); //Changed!
             field.sort(Comparator.comparingInt((HorseResult r) -> safeInt(r.getProcentAnalys())).reversed());
             if (!field.isEmpty()) {
                 HorseResult top = field.get(0);
@@ -470,6 +497,86 @@ public class TravTools {
         return pickWinnerBySwedishPhrase(effective, topN);
     }
 
+    // ------------------------------------------------------------
+    // NYTT: topp N per avd/lopp för en hel dag
+    // ------------------------------------------------------------
+
+    public static class LoppTopN { //Changed!
+        public String lap; //Changed!
+        public List<WinnerSuggestion> top; //Changed!
+        public LoppTopN(String lap, List<WinnerSuggestion> top) { this.lap = lap; this.top = top; } //Changed!
+    }
+
+    @Tool(name = "top_by_day_track_form",
+            description = "Topp N per lopp/avd för ett datum + bana + spelform. Prioriterar starter=0 om finns i avdelningen, annars väger den ihop starter 1-8.")
+    public List<LoppTopN> topByDayTrackForm(String dateOrPhrase, String banKodOrTrack, String spelFormOrPhrase, Integer topN) { //Changed!
+
+        Integer startDate = parseDateFlexible(dateOrPhrase); //Changed!
+        String banKod = resolveBanKodFlexible(banKodOrTrack); //Changed!
+        String form = parseSpelFormFlexible(spelFormOrPhrase); //Changed!
+        if (topN == null || topN <= 0) topN = 3; //Changed!
+        if (startDate == null || banKod == null) return List.of(); //Changed!
+
+        boolean aggregator = isAggregatorSpelForm(form); //Changed!
+        String effectiveForm = (form == null ? "vinnare" : form); //Changed!
+
+        List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, effectiveForm); //Changed!
+
+        if (laps.isEmpty() || aggregator) { //Changed!
+            effectiveForm = "vinnare"; //Changed!
+            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, "vinnare"); //Changed!
+        }
+        if (laps.isEmpty()) { //Changed!
+            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, null); //Changed!
+        }
+
+        final String formForCalls = effectiveForm; //Changed!
+
+        Integer finalTopN = topN;
+        return laps.stream()
+                .sorted(Comparator.comparingInt(TravTools::lapKey)) //Changed!
+                .map(lap -> new LoppTopN( //Changed!
+                        lap, //Changed!
+                        pickWinnerAcrossStarters(String.valueOf(startDate), banKod, lap, formForCalls, finalTopN) //Changed!
+                ))
+                .toList(); //Changed!
+    }
+
+    @Tool(name = "top_by_day_phrase",
+            description = "Som top_by_day_track_form men tar en svensk fras. Ex: 'Visa topp 3 i alla avdelningar på Solvalla 2025-12-03 spelform vinnare'")
+    public List<LoppTopN> topByDayPhrase(String phrase, Integer topN) { //Changed!
+        return topByDayTrackForm(phrase, phrase, phrase, topN); //Changed!
+    }
+
+    // ------------------------------------------------------------
+    // NYTT: välj spikar (vinnare) från olika lopp/avd
+    // ------------------------------------------------------------
+
+    @Tool(name = "pick_spikar_across_laps",
+            description = "Välj N spikar (vinnare) från olika lopp/avd för datum+bana+spelform. Tar bästa top1 per avd och väljer sedan de N starkaste.")
+    public List<WinnerSuggestion> pickSpikarAcrossLaps(String dateOrPhrase, String banKodOrTrack, String spelFormOrPhrase, Integer count) { //Changed!
+
+        if (count == null || count <= 0) count = 2; //Changed!
+
+        List<LoppTopN> perLap = topByDayTrackForm(dateOrPhrase, banKodOrTrack, spelFormOrPhrase, 1); //Changed!
+
+        return perLap.stream()
+                .map(x -> (x.top == null || x.top.isEmpty()) ? null : x.top.get(0)) //Changed!
+                .filter(Objects::nonNull) //Changed!
+                .sorted((a, b) -> Double.compare(b.score, a.score)) //Changed!
+                .limit(count) //Changed!
+                .toList(); //Changed!
+    }
+
+    @Tool(name = "pick_spikar_by_phrase",
+            description = "Tolka svensk fras och välj 2 spikar från olika avdelningar. Ex: 'Ge mig 2 spikar på Solvalla 2025-12-03 spelform vinnare'")
+    public List<WinnerSuggestion> pickSpikarByPhrase(String phrase, Integer count) { //Changed!
+        return pickSpikarAcrossLaps(phrase, phrase, phrase, count); //Changed!
+    }
+
+    // ------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------
 
     private static int safeInt(String s) {
         try {
@@ -600,6 +707,10 @@ public class TravTools {
             return -1;
         }
     }
+
+    // ------------------------------------------------------------
+    // DTO
+    // ------------------------------------------------------------
 
     public static class WinnerSuggestion {
         public String name;

@@ -1,0 +1,23 @@
+[
+ {
+  "RuleID": "openai-api-key",
+  "Description": "Found an OpenAI API Key, posing a risk of unauthorized access to AI services and data manipulation.",
+  "StartLine": 1,
+  "EndLine": 1,
+  "StartColumn": 26,
+  "EndColumn": 189,
+  "Match": "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",
+  "Secret": "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",
+  "File": ".env",
+  "SymlinkFile": "",
+  "Commit": "8507be018ae70e9870ab53d916264c63e93181e8",
+  "Link": "https://github.com/SimNordlund/TravanalysChatbot/blob/8507be018ae70e9870ab53d916264c63e93181e8/.env#L1",
+  "Entropy": 5.540573,
+  "Author": "SimNordlund",
+  "Email": "147151891+SimNordlund@users.noreply.github.com",
+  "Date": "2025-04-28T14:07:51Z",
+  "Message": "Add .env",
+  "Tags": [],
+  "Fingerprint": "8507be018ae70e9870ab53d916264c63e93181e8:.env:openai-api-key:1"
+ }
+]

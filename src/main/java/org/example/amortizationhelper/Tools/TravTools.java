@@ -558,15 +558,29 @@ public class TravTools {
 
         if (count == null || count <= 0) count = 2; //Changed!
 
-        List<LoppTopN> perLap = topByDayTrackForm(dateOrPhrase, banKodOrTrack, spelFormOrPhrase, 1); //Changed!
+        List<LoppTopN> perLap = topByDayTrackForm(dateOrPhrase, banKodOrTrack, spelFormOrPhrase, 2); //Changed! (1 -> 2)
 
         return perLap.stream()
-                .map(x -> (x.top == null || x.top.isEmpty()) ? null : x.top.get(0)) //Changed!
+                .map(x -> { //Changed!
+                    if (x.top == null || x.top.isEmpty()) return null; //Changed!
+                    WinnerSuggestion first = x.top.get(0); //Changed!
+                    WinnerSuggestion second = (x.top.size() > 1) ? x.top.get(1) : null; //Changed!
+                    double edge = (second == null) ? 0.0 : (first.score - second.score); //Changed!
+                    // “spikScore”: stark vinnare + hur mycket den sticker ut //Changed!
+                    double spikScore = first.score + edge; //Changed!
+                    // Vi kan “bädda in” spikScore i score-fältet om du vill sortera på det //Changed!
+                    return new WinnerSuggestion( //Changed!
+                            first.name, first.banKod, first.lap, first.startDate, first.spelForm, //Changed!
+                            spikScore, first.variants, first.starters, //Changed!
+                            first.avgAnalys, first.avgPrestation, first.avgTid, first.avgMotstand //Changed!
+                    ); //Changed!
+                }) //Changed!
                 .filter(Objects::nonNull) //Changed!
                 .sorted((a, b) -> Double.compare(b.score, a.score)) //Changed!
                 .limit(count) //Changed!
                 .toList(); //Changed!
     }
+
 
     @Tool(name = "pick_spikar_by_phrase",
             description = "Tolka svensk fras och välj 2 spikar från olika avdelningar. Ex: 'Ge mig 2 spikar på Solvalla 2025-12-03 spelform vinnare'")

@@ -92,7 +92,7 @@ public class VoiceController {
                 .build();
 
         ChatMemory memory = MessageWindowChatMemory.builder()
-                .maxMessages(12)
+                .maxMessages(15)
                 .build();
         var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).build();
 

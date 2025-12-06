@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-//RANK REPO
+//RANK
 @Repository
 public interface HorseResultRepo extends JpaRepository<HorseResult, Long> {
     List<HorseResult> findByStartDateAndBanKod(Integer startDate, String banKod);
@@ -27,7 +27,7 @@ public interface HorseResultRepo extends JpaRepository<HorseResult, Long> {
     List<HorseResult> findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(
             Integer startDate, String banKod, String lap, String spelForm);
 
-    List<HorseResult> findByStartDateAndBanKodAndSpelFormIgnoreCase(Integer startDate, String banKod, String spelForm); //Changed!
+    List<HorseResult> findByStartDateAndBanKodAndSpelFormIgnoreCase(Integer startDate, String banKod, String spelForm);
 
     @Query("select distinct hr.banKod from HorseResult hr where hr.startDate = :startDate order by hr.banKod")
     List<String> distinctBanKodByDate(@Param("startDate") Integer startDate);

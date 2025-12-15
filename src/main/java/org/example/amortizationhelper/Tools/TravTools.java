@@ -48,144 +48,128 @@ public class TravTools {
 
     private final HorseResultRepo horseResultRepo;
 
-    // ------------------------------------------------------------
-    // NYTT: Snapshot för ALLA banor på ett datum (spelform + lopp + starter 0-8)
-    // ------------------------------------------------------------
-
-    public static class DaySnapshot { //Changed!
-        public Integer startDate; //Changed!
-        public String requestedSpelForm; //Changed!
-        public List<TrackSnapshot> tracks; //Changed!
-        public DaySnapshot(Integer startDate, String requestedSpelForm, List<TrackSnapshot> tracks) { //Changed!
-            this.startDate = startDate; //Changed!
-            this.requestedSpelForm = requestedSpelForm; //Changed!
-            this.tracks = tracks; //Changed!
-        } //Changed!
-    } //Changed!
-
-    public static class TrackSnapshot { //Changed!
-        public String banKod; //Changed!
-        public String spelFormUsed; //Changed!
-        public List<LapSnapshot> laps; //Changed!
-        public TrackSnapshot(String banKod, String spelFormUsed, List<LapSnapshot> laps) { //Changed!
-            this.banKod = banKod; //Changed!
-            this.spelFormUsed = spelFormUsed; //Changed!
-            this.laps = laps; //Changed!
-        } //Changed!
-    } //Changed!
-
-    public static class LapSnapshot { //Changed!
-        public String lap; //Changed!
-        public List<Integer> starters; //Changed!
-        public LapSnapshot(String lap, List<Integer> starters) { //Changed!
-            this.lap = lap; //Changed!
-            this.starters = starters; //Changed!
-        } //Changed!
-    } //Changed!
-
-    @Tool( //Changed!
-            name = "snapshot_by_date_form_all_tracks", //Changed!
-            description = "Returnerar alla banor för ett datum, samt alla lopp/avd och vilka starter (0-8) som finns per lopp, filtrerat på spelform (med fallback till vinnare/utan spelform)." //Changed!
-    ) //Changed!
-    public DaySnapshot snapshotByDateFormAllTracks(String dateOrPhrase, String spelFormOrPhrase) { //Changed!
-        Integer startDate = parseDateFlexible(dateOrPhrase); //Changed!
-        if (startDate == null) return new DaySnapshot(null, null, List.of()); //Changed!
-
-        String parsedForm = parseSpelFormFlexible(spelFormOrPhrase); //Changed!
-        if (isAggregatorSpelForm(parsedForm)) parsedForm = "vinnare"; //Changed!
-        String requestedForm = (parsedForm == null ? "vinnare" : parsedForm); //Changed!
-
-        List<String> tracks = horseResultRepo.distinctBanKodByDate(startDate); //Changed!
-        List<TrackSnapshot> out = new ArrayList<>(); //Changed!
-
-        for (String banKod : tracks) { //Changed!
-            String formUsed = requestedForm; //Changed!
-            List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, formUsed); //Changed!
-
-            if (laps.isEmpty() && !"vinnare".equalsIgnoreCase(formUsed)) { //Changed!
-                formUsed = "vinnare"; //Changed!
-                laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, formUsed); //Changed!
-            } //Changed!
-            if (laps.isEmpty()) { //Changed!
-                formUsed = null; //Changed!
-                laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, null); //Changed!
-            } //Changed!
-
-            List<LapSnapshot> lapSnaps = new ArrayList<>(); //Changed!
-            for (String lap : laps.stream().sorted(Comparator.comparingInt(TravTools::lapKey)).toList()) { //Changed!
-                List<String> startersRaw = horseResultRepo.distinctStartersByDateBanKodFormLap(startDate, banKod, formUsed, lap); //Changed!
-                List<Integer> starters = (startersRaw == null ? List.<Integer>of() : startersRaw.stream() //Changed!
-                        .map(TravTools::safeInt) //Changed!
-                        .filter(x -> x >= 0 && x <= 8) //Changed!
-                        .distinct() //Changed!
-                        .sorted() //Changed!
-                        .toList()); //Changed!
-
-                lapSnaps.add(new LapSnapshot(lap, starters)); //Changed!
-            } //Changed!
-
-            out.add(new TrackSnapshot(banKod, (formUsed == null ? "ALL" : formUsed), lapSnaps)); //Changed!
-        } //Changed!
-
-        return new DaySnapshot(startDate, requestedForm, out); //Changed!
-    } //Changed!
-
-    // ------------------------------------------------------------
-    // Starter=0 (aggregerat) prioritet
-    // ------------------------------------------------------------
-
-    private static boolean isStarterZero(HorseResult r) { //Changed!
-        return safeInt(r.getStarter()) == 0; //Changed!
+    public static class DaySnapshot {
+        public Integer startDate;
+        public String requestedSpelForm;
+        public List<TrackSnapshot> tracks;
+        public DaySnapshot(Integer startDate, String requestedSpelForm, List<TrackSnapshot> tracks) {
+            this.startDate = startDate;
+            this.requestedSpelForm = requestedSpelForm;
+            this.tracks = tracks;
+        }
     }
 
-    private static List<HorseResult> preferStarterZero(List<HorseResult> rows) { //Changed!
-        if (rows == null || rows.isEmpty()) return rows; //Changed!
-        List<HorseResult> zero = rows.stream() //Changed!
-                .filter(TravTools::isStarterZero) //Changed!
-                .toList(); //Changed!
-        return zero.isEmpty() ? rows : zero; //Changed!
+    public static class TrackSnapshot {
+        public String banKod;
+        public String spelFormUsed;
+        public List<LapSnapshot> laps;
+        public TrackSnapshot(String banKod, String spelFormUsed, List<LapSnapshot> laps) {
+            this.banKod = banKod;
+            this.spelFormUsed = spelFormUsed;
+            this.laps = laps;
+        }
     }
 
-    private static int lapKey(String lap) { //Changed!
-        try { return Integer.parseInt(lap); } catch (Exception e) { return Integer.MAX_VALUE; } //Changed!
+    public static class LapSnapshot {
+        public String lap;
+        public List<Integer> starters;
+        public LapSnapshot(String lap, List<Integer> starters) {
+            this.lap = lap;
+            this.starters = starters;
+        }
     }
 
-    private static double bonusFromPerspectives( //Changed!
-                                                 int avgPrestation, int avgForm, int avgFart, int avgMotstand, //Changed!
-                                                 int avgKlass, int avgSkrik, int avgPlacering //Changed!
-    ) { //Changed!
-        // Håll bonusen liten så Analys fortfarande styr. //Changed!
+    @Tool(
+            name = "snapshot_by_date_form_all_tracks",
+            description = "Returnerar alla banor för ett datum, samt alla lopp/avd och vilka starter (0-8) som finns per lopp, filtrerat på spelform (med fallback till vinnare/utan spelform)."
+    )
+    public DaySnapshot snapshotByDateFormAllTracks(String dateOrPhrase, String spelFormOrPhrase) {
+        Integer startDate = parseDateFlexible(dateOrPhrase);
+        if (startDate == null) return new DaySnapshot(null, null, List.of());
+
+        String parsedForm = parseSpelFormFlexible(spelFormOrPhrase);
+        if (isAggregatorSpelForm(parsedForm)) parsedForm = "vinnare";
+        String requestedForm = (parsedForm == null ? "vinnare" : parsedForm);
+
+        List<String> tracks = horseResultRepo.distinctBanKodByDate(startDate);
+        List<TrackSnapshot> out = new ArrayList<>();
+
+        for (String banKod : tracks) {
+            String formUsed = requestedForm;
+            List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, formUsed);
+
+            if (laps.isEmpty() && !"vinnare".equalsIgnoreCase(formUsed)) {
+                formUsed = "vinnare";
+                laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, formUsed);
+            }
+            if (laps.isEmpty()) {
+                formUsed = null;
+                laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, null);
+            }
+
+            List<LapSnapshot> lapSnaps = new ArrayList<>();
+            for (String lap : laps.stream().sorted(Comparator.comparingInt(TravTools::lapKey)).toList()) {
+                List<String> startersRaw = horseResultRepo.distinctStartersByDateBanKodFormLap(startDate, banKod, formUsed, lap);
+                List<Integer> starters = (startersRaw == null ? List.<Integer>of() : startersRaw.stream()
+                        .map(TravTools::safeInt)
+                        .filter(x -> x >= 0 && x <= 8)
+                        .distinct()
+                        .sorted()
+                        .toList());
+
+                lapSnaps.add(new LapSnapshot(lap, starters));
+            }
+
+            out.add(new TrackSnapshot(banKod, (formUsed == null ? "ALL" : formUsed), lapSnaps));
+        }
+
+        return new DaySnapshot(startDate, requestedForm, out);
+    }
+
+
+    private static boolean isStarterZero(HorseResult r) {
+        return safeInt(r.getStarter()) == 0;
+    }
+
+    private static List<HorseResult> preferStarterZero(List<HorseResult> rows) {
+        if (rows == null || rows.isEmpty()) return rows;
+
+        return rows.stream()
+                .sorted(Comparator.comparingInt(r -> isStarterZero(r) ? 0 : 1))
+                .toList();
+    }
+
+    private static int lapKey(String lap) {
+        try { return Integer.parseInt(lap); } catch (Exception e) { return Integer.MAX_VALUE; }
+    }
+
+    private static double bonusFromPerspectives(
+            int avgPrestation, int avgForm, int avgFart, int avgMotstand,
+            int avgKlass, int avgSkrik, int avgPlacering
+    ) {
         double raw = 0.06 * avgPrestation
                 + 0.05 * avgForm
                 + 0.04 * avgFart
                 + 0.03 * avgMotstand
                 + 0.02 * avgKlass
                 + 0.01 * avgSkrik
-                + 0.01 * avgPlacering; //Changed!
-        return raw * 0.20; //Changed! // ~0–4 poäng typ
-    } //Changed!
+                + 0.01 * avgPlacering;
+        return raw * 0.20;
+    }
 
 
-    // ------------------------------------------------------------
-    // NYTT: Placering tolkas från hästnamn "PedroHorse (4)"
-    // ------------------------------------------------------------
+    private static Integer placementTop6FromName(String horseName) {
+        if (horseName == null) return null;
+        Matcher m = Pattern.compile("\\((\\d)\\)\\s*$").matcher(horseName.trim());
+        if (!m.find()) return null;
+        int p = Integer.parseInt(m.group(1));
+        return (p >= 1 && p <= 6) ? p : null;
+    }
 
-    private static Integer placementTop6FromName(String horseName) { //Changed!
-        if (horseName == null) return null; //Changed!
-        Matcher m = Pattern.compile("\\((\\d)\\)\\s*$").matcher(horseName.trim()); //Changed!
-        if (!m.find()) return null; //Changed!
-        int p = Integer.parseInt(m.group(1)); //Changed!
-        return (p >= 1 && p <= 6) ? p : null; //Changed!
-    } //Changed!
-
-    private static String stripPlacementFromName(String horseName) { //Changed!
-        if (horseName == null) return null; //Changed!
-        return horseName.replaceAll("\\s*\\(\\d\\)\\s*$", "").trim(); //Changed!
-    } //Changed!
-
-    // ------------------------------------------------------------
-    // Basic tools
-    // ------------------------------------------------------------
+    private static String stripPlacementFromName(String horseName) {
+        if (horseName == null) return null;
+        return horseName.replaceAll("\\s*\\(\\d\\)\\s*$", "").trim();
+    }
 
     @Tool(description = "Hämta värden om hästar baserat på ett id.")
     public HorseResult getHorseValues(Long id) {
@@ -247,38 +231,38 @@ public class TravTools {
         List<HorseResult> rows = horseResultRepo
                 .findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, effectiveForm);
 
-        rows = preferStarterZero(rows); //Changed!
+        rows = preferStarterZero(rows);
 
         if (rows.isEmpty() || aggregator) {
-            effectiveForm = "vinnare"; //Changed!
+            effectiveForm = "vinnare";
             rows = horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, "vinnare");
-            rows = preferStarterZero(rows); //Changed!
+            rows = preferStarterZero(rows);
         }
 
         if (rows.isEmpty()) {
             rows = horseResultRepo.findByStartDateAndBanKodAndLap(startDate, banKod, lap);
-            rows = preferStarterZero(rows); //Changed!
-            effectiveForm = "vinnare"; //Changed!
+            rows = preferStarterZero(rows);
+            effectiveForm = "vinnare";
         }
 
         if (rows.isEmpty()) return List.of();
 
         final String formForReturn = effectiveForm;
 
-        Map<String, List<HorseResult>> byHorse = rows.stream() //Changed!
-                .collect(Collectors.groupingBy(r -> stripPlacementFromName(r.getNameOfHorse()))); //Changed!
+        Map<String, List<HorseResult>> byHorse = rows.stream()
+                .collect(Collectors.groupingBy(r -> stripPlacementFromName(r.getNameOfHorse())));
 
         List<WinnerSuggestion> ranked = byHorse.entrySet().stream().map(e -> {
-                    String baseName = e.getKey(); //Changed!
+                    String baseName = e.getKey();
                     List<HorseResult> list = e.getValue();
 
-                    Integer placement = list.stream() //Changed!
-                            .map(r -> placementTop6FromName(r.getNameOfHorse())) //Changed!
-                            .filter(Objects::nonNull) //Changed!
-                            .min(Integer::compareTo) //Changed!
-                            .orElse(null); //Changed!
+                    Integer placement = list.stream()
+                            .map(r -> placementTop6FromName(r.getNameOfHorse()))
+                            .filter(Objects::nonNull)
+                            .min(Integer::compareTo)
+                            .orElse(null);
 
-                    String displayName = (placement == null) ? baseName : (baseName + " (" + placement + ")"); //Changed!
+                    String displayName = (placement == null) ? baseName : (baseName + " (" + placement + ")");
 
                     List<Integer> starters = new ArrayList<>();
                     List<Integer> analys = new ArrayList<>();
@@ -286,10 +270,10 @@ public class TravTools {
                     List<Integer> tid = new ArrayList<>();
                     List<Integer> motst = new ArrayList<>();
 
-                    List<Integer> klass = new ArrayList<>(); //Changed!
-                    List<Integer> skrik = new ArrayList<>(); //Changed!
-                    List<Integer> plac = new ArrayList<>(); //Changed!
-                    List<Integer> formv = new ArrayList<>(); //Changed!
+                    List<Integer> klass = new ArrayList<>();
+                    List<Integer> skrik = new ArrayList<>();
+                    List<Integer> plac = new ArrayList<>();
+                    List<Integer> formv = new ArrayList<>();
 
                     for (HorseResult r : list) {
                         int s = safeInt(r.getStarter());
@@ -300,18 +284,18 @@ public class TravTools {
                         tid.add(safeInt(r.getProcentFart()));
                         motst.add(safeInt(r.getProcentMotstand()));
 
-                        klass.add(safeInt(r.getKlassProcent())); //Changed!
-                        skrik.add(safeInt(r.getProcentSkrik())); //Changed!
-                        plac.add(safeInt(r.getProcentPlacering())); //Changed!
-                        formv.add(safeInt(r.getProcentForm())); //Changed!
+                        klass.add(safeInt(r.getKlassProcent()));
+                        skrik.add(safeInt(r.getProcentSkrik()));
+                        plac.add(safeInt(r.getProcentPlacering()));
+                        formv.add(safeInt(r.getProcentForm()));
                     }
 
                     double sumW = 0;
                     double sumAnalys = 0, sumPrest = 0, sumTid = 0, sumMot = 0;
-                    double sumKlass = 0, sumSkrik = 0, sumPlac = 0, sumForm = 0; //Changed!
+                    double sumKlass = 0, sumSkrik = 0, sumPlac = 0, sumForm = 0;
 
                     for (int i = 0; i < starters.size(); i++) {
-                        double w = Math.sqrt(Math.max(1, starters.get(i)));
+                        double w = starterWeight(starters.get(i));
                         sumW += w;
 
                         sumAnalys += w * analys.get(i);
@@ -319,10 +303,10 @@ public class TravTools {
                         sumTid += w * tid.get(i);
                         sumMot += w * motst.get(i);
 
-                        sumKlass += w * klass.get(i); //Changed!
-                        sumSkrik += w * skrik.get(i); //Changed!
-                        sumPlac  += w * plac.get(i);  //Changed!
-                        sumForm  += w * formv.get(i); //Changed!
+                        sumKlass += w * klass.get(i);
+                        sumSkrik += w * skrik.get(i);
+                        sumPlac  += w * plac.get(i);
+                        sumForm  += w * formv.get(i);
                     }
 
                     double wAvgAnalys = sumAnalys / sumW;
@@ -336,20 +320,20 @@ public class TravTools {
                     int avgT = (int) Math.round(sumTid / sumW);
                     int avgM = (int) Math.round(sumMot / sumW);
 
-                    int avgK = (int) Math.round(sumKlass / sumW); //Changed!
-                    int avgS = (int) Math.round(sumSkrik / sumW); //Changed!
-                    int avgPl = (int) Math.round(sumPlac / sumW); //Changed!
-                    int avgF = (int) Math.round(sumForm / sumW); //Changed!
+                    int avgK = (int) Math.round(sumKlass / sumW);
+                    int avgS = (int) Math.round(sumSkrik / sumW);
+                    int avgPl = (int) Math.round(sumPlac / sumW);
+                    int avgF = (int) Math.round(sumForm / sumW);
 
-                    double baseScore = wAvgAnalys - 0.5 * std; //Changed!
-                    double bonus = bonusFromPerspectives(avgP, avgF, avgT, avgM, avgK, avgS, avgPl); //Changed!
-                    double score = baseScore + bonus; //Changed!
+                    double baseScore = wAvgAnalys - 0.5 * std;
+                    double bonus = bonusFromPerspectives(avgP, avgF, avgT, avgM, avgK, avgS, avgPl);
+                    double score = baseScore + bonus;
 
                     String startersStr = starters.stream().sorted().map(String::valueOf).distinct()
                             .collect(Collectors.joining(","));
 
                     return new WinnerSuggestion(
-                            displayName, banKod, lap, startDate, formForReturn, //Changed!
+                            displayName, banKod, lap, startDate, formForReturn,
                             score, starters.size(), startersStr, avgA, avgP, avgT, avgM
                     );
                 }).sorted((a, b) -> Double.compare(b.score, a.score))
@@ -361,14 +345,12 @@ public class TravTools {
         return ranked;
     }
 
-
     @Tool(
             name = "pick_winner_by_swedish_phrase",
             description = "Tolka en svensk fras med datum, bana, spelform och lopp (utan antal starter) och välj topp N över alla starter. Ex: 'Vem vinner på Solvalla 2025-09-03 med spelform vinnare i lopp 7?'"
     )
     public List<WinnerSuggestion> pickWinnerBySwedishPhrase(String phrase, Integer topN) {
         if (topN == null || topN <= 0) topN = 3;
-
         return pickWinnerAcrossStarters(phrase, phrase, phrase, phrase, topN);
     }
 
@@ -582,7 +564,8 @@ public class TravTools {
         if (d == null || b == null || lap == null) return List.of();
 
         List<HorseResult> rows = horseResultRepo.findField(d, b, lap, f);
-        rows = preferStarterZero(rows); //Changed!
+        rows = onlyStarterZeroOrAllIfMissing(rows);
+        rows = preferStarterZero(rows);
         return rows.stream()
                 .sorted(Comparator.comparingInt((HorseResult r) -> safeInt(r.getProcentAnalys())).reversed())
                 .toList();
@@ -617,7 +600,8 @@ public class TravTools {
         List<PerLoppBest> out = new ArrayList<>();
         for (String lap : laps) {
             List<HorseResult> field = horseResultRepo.findField(d, b, lap, f);
-            field = preferStarterZero(field); //Changed!
+            field = onlyStarterZeroOrAllIfMissing(field);
+            field = preferStarterZero(field);
             field.sort(Comparator.comparingInt((HorseResult r) -> safeInt(r.getProcentAnalys())).reversed());
             if (!field.isEmpty()) {
                 HorseResult top = field.get(0);
@@ -647,420 +631,412 @@ public class TravTools {
         return pickWinnerBySwedishPhrase(effective, topN);
     }
 
-    // ------------------------------------------------------------
-    // NYTT: topp N per avd/lopp för en hel dag
-    // ------------------------------------------------------------
-
-    public static class LoppTopN { //Changed!
-        public String lap; //Changed!
-        public List<WinnerSuggestion> top; //Changed!
-        public LoppTopN(String lap, List<WinnerSuggestion> top) { this.lap = lap; this.top = top; } //Changed!
+    public static class LoppTopN {
+        public String lap;
+        public List<WinnerSuggestion> top;
+        public LoppTopN(String lap, List<WinnerSuggestion> top) { this.lap = lap; this.top = top; }
     }
 
     @Tool(name = "top_by_day_track_form",
             description = "Topp N per lopp/avd för ett datum + bana + spelform. Prioriterar starter=0 om finns i avdelningen, annars väger den ihop starter 1-8.")
-    public List<LoppTopN> topByDayTrackForm(String dateOrPhrase, String banKodOrTrack, String spelFormOrPhrase, Integer topN) { //Changed!
+    public List<LoppTopN> topByDayTrackForm(String dateOrPhrase, String banKodOrTrack, String spelFormOrPhrase, Integer topN) {
 
-        Integer startDate = parseDateFlexible(dateOrPhrase); //Changed!
-        String banKod = resolveBanKodFlexible(banKodOrTrack); //Changed!
-        String form = parseSpelFormFlexible(spelFormOrPhrase); //Changed!
-        if (topN == null || topN <= 0) topN = 3; //Changed!
-        if (startDate == null || banKod == null) return List.of(); //Changed!
+        Integer startDate = parseDateFlexible(dateOrPhrase);
+        String banKod = resolveBanKodFlexible(banKodOrTrack);
+        String form = parseSpelFormFlexible(spelFormOrPhrase);
+        if (topN == null || topN <= 0) topN = 3;
+        if (startDate == null || banKod == null) return List.of();
 
-        boolean aggregator = isAggregatorSpelForm(form); //Changed!
-        String effectiveForm = (form == null ? "vinnare" : form); //Changed!
+        boolean aggregator = isAggregatorSpelForm(form);
+        String effectiveForm = (form == null ? "vinnare" : form);
 
-        List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, effectiveForm); //Changed!
+        List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, effectiveForm);
 
-        if (laps.isEmpty() || aggregator) { //Changed!
-            effectiveForm = "vinnare"; //Changed!
-            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, "vinnare"); //Changed!
+        if (laps.isEmpty() || aggregator) {
+            effectiveForm = "vinnare";
+            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, "vinnare");
         }
-        if (laps.isEmpty()) { //Changed!
-            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, null); //Changed!
+        if (laps.isEmpty()) {
+            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, null);
         }
 
-        final String formForCalls = effectiveForm; //Changed!
+        final String formForCalls = effectiveForm;
 
         Integer finalTopN = topN;
         return laps.stream()
-                .sorted(Comparator.comparingInt(TravTools::lapKey)) //Changed!
-                .map(lap -> new LoppTopN( //Changed!
-                        lap, //Changed!
-                        pickWinnerAcrossStarters(String.valueOf(startDate), banKod, lap, formForCalls, finalTopN) //Changed!
+                .sorted(Comparator.comparingInt(TravTools::lapKey))
+                .map(lap -> new LoppTopN(
+                        lap,
+                        pickWinnerAcrossStarters(String.valueOf(startDate), banKod, lap, formForCalls, finalTopN)
                 ))
-                .toList(); //Changed!
+                .toList();
     }
 
     @Tool(name = "top_by_day_phrase",
             description = "Som top_by_day_track_form men tar en svensk fras. Ex: 'Visa topp 3 i alla avdelningar på Solvalla 2025-12-03 spelform vinnare'")
-    public List<LoppTopN> topByDayPhrase(String phrase, Integer topN) { //Changed!
-        return topByDayTrackForm(phrase, phrase, phrase, topN); //Changed!
+    public List<LoppTopN> topByDayPhrase(String phrase, Integer topN) {
+        return topByDayTrackForm(phrase, phrase, phrase, topN);
     }
 
-    // ------------------------------------------------------------
-    // NYTT: Globala spikar över ALLA banor för ett datum
-    // ------------------------------------------------------------
+    public static class GlobalSpikSuggestion {
+        public String name;
+        public String banKod;
+        public String lap;
+        public Integer startDate;
+        public String spelForm;
+        public double spikScore;
+        public double winnerScore;
+        public double edgeVsSecond;
+        public String secondName;
+        public Double secondScore;
+        public String starters;
 
-    public static class GlobalSpikSuggestion { //Changed!
-        public String name; //Changed!
-        public String banKod; //Changed!
-        public String lap; //Changed!
-        public Integer startDate; //Changed!
-        public String spelForm; //Changed!
-        public double spikScore; //Changed!
-        public double winnerScore; //Changed!
-        public double edgeVsSecond; //Changed!
-        public String secondName; //Changed!
-        public Double secondScore; //Changed!
-        public String starters; //Changed!
+        public GlobalSpikSuggestion() { }
 
-        public GlobalSpikSuggestion() { } //Changed!
+        public GlobalSpikSuggestion(String name, String banKod, String lap, Integer startDate, String spelForm,
+                                    double spikScore, double winnerScore, double edgeVsSecond,
+                                    String secondName, Double secondScore, String starters) {
+            this.name = name;
+            this.banKod = banKod;
+            this.lap = lap;
+            this.startDate = startDate;
+            this.spelForm = spelForm;
+            this.spikScore = spikScore;
+            this.winnerScore = winnerScore;
+            this.edgeVsSecond = edgeVsSecond;
+            this.secondName = secondName;
+            this.secondScore = secondScore;
+            this.starters = starters;
+        }
+    }
 
-        public GlobalSpikSuggestion(String name, String banKod, String lap, Integer startDate, String spelForm, //Changed!
-                                    double spikScore, double winnerScore, double edgeVsSecond, //Changed!
-                                    String secondName, Double secondScore, String starters) { //Changed!
-            this.name = name; //Changed!
-            this.banKod = banKod; //Changed!
-            this.lap = lap; //Changed!
-            this.startDate = startDate; //Changed!
-            this.spelForm = spelForm; //Changed!
-            this.spikScore = spikScore; //Changed!
-            this.winnerScore = winnerScore; //Changed!
-            this.edgeVsSecond = edgeVsSecond; //Changed!
-            this.secondName = secondName; //Changed!
-            this.secondScore = secondScore; //Changed!
-            this.starters = starters; //Changed!
-        } //Changed!
-    } //Changed!
+    @Tool(
+            name = "pick_spikar_all_tracks_by_date_form",
+            description = "Välj N spikar globalt över alla banor för ett datum + spelform. Tar top2 per lopp och rankar på spikScore = winnerScore + (winnerScore - secondScore)."
+    )
+    public List<GlobalSpikSuggestion> pickSpikarAllTracksByDateForm(String dateOrPhrase, String spelFormOrPhrase, Integer count) {
+        if (count == null || count <= 0) count = 5;
 
-    @Tool( //Changed!
-            name = "pick_spikar_all_tracks_by_date_form", //Changed!
-            description = "Välj N spikar globalt över alla banor för ett datum + spelform. Tar top2 per lopp och rankar på spikScore = winnerScore + (winnerScore - secondScore)." //Changed!
-    ) //Changed!
-    public List<GlobalSpikSuggestion> pickSpikarAllTracksByDateForm(String dateOrPhrase, String spelFormOrPhrase, Integer count) { //Changed!
-        if (count == null || count <= 0) count = 5; //Changed!
+        DaySnapshot snap = snapshotByDateFormAllTracks(dateOrPhrase, spelFormOrPhrase);
+        if (snap == null || snap.startDate == null || snap.tracks == null || snap.tracks.isEmpty()) return List.of();
 
-        DaySnapshot snap = snapshotByDateFormAllTracks(dateOrPhrase, spelFormOrPhrase); //Changed!
-        if (snap == null || snap.startDate == null || snap.tracks == null || snap.tracks.isEmpty()) return List.of(); //Changed!
+        List<GlobalSpikSuggestion> candidates = new ArrayList<>();
 
-        List<GlobalSpikSuggestion> candidates = new ArrayList<>(); //Changed!
+        for (TrackSnapshot t : snap.tracks) {
+            if (t == null || t.laps == null) continue;
+            for (LapSnapshot l : t.laps) {
+                if (l == null || l.lap == null) continue;
 
-        for (TrackSnapshot t : snap.tracks) { //Changed!
-            if (t == null || t.laps == null) continue; //Changed!
-            for (LapSnapshot l : t.laps) { //Changed!
-                if (l == null || l.lap == null) continue; //Changed!
+                List<WinnerSuggestion> top2 = pickWinnerAcrossStarters(
+                        String.valueOf(snap.startDate),
+                        t.banKod,
+                        l.lap,
+                        spelFormOrPhrase,
+                        2
+                );
 
-                List<WinnerSuggestion> top2 = pickWinnerAcrossStarters( //Changed!
-                        String.valueOf(snap.startDate), //Changed!
-                        t.banKod, //Changed!
-                        l.lap, //Changed!
-                        spelFormOrPhrase, //Changed!
-                        2 //Changed!
-                ); //Changed!
+                if (top2 == null || top2.isEmpty()) continue;
 
-                if (top2 == null || top2.isEmpty()) continue; //Changed!
+                WinnerSuggestion first = top2.get(0);
+                WinnerSuggestion second = (top2.size() > 1) ? top2.get(1) : null;
 
-                WinnerSuggestion first = top2.get(0); //Changed!
-                WinnerSuggestion second = (top2.size() > 1) ? top2.get(1) : null; //Changed!
+                double edge = (second == null) ? 0.0 : (first.score - second.score);
+                double spikScore = first.score + edge;
 
-                double edge = (second == null) ? 0.0 : (first.score - second.score); //Changed!
-                double spikScore = first.score + edge; //Changed!
-
-                candidates.add(new GlobalSpikSuggestion( //Changed!
-                        first.name, //Changed!
-                        first.banKod, //Changed!
-                        first.lap, //Changed!
-                        first.startDate, //Changed!
-                        first.spelForm, //Changed!
-                        spikScore, //Changed!
-                        first.score, //Changed!
-                        edge, //Changed!
-                        (second == null ? null : second.name), //Changed!
-                        (second == null ? null : second.score), //Changed!
-                        first.starters //Changed!
+                candidates.add(new GlobalSpikSuggestion(
+                        first.name,
+                        first.banKod,
+                        first.lap,
+                        first.startDate,
+                        first.spelForm,
+                        spikScore,
+                        first.score,
+                        edge,
+                        (second == null ? null : second.name),
+                        (second == null ? null : second.score),
+                        first.starters
                 ));
-            } //Changed!
-        } //Changed!
+            }
+        }
 
-        return candidates.stream() //Changed!
-                .sorted((a, b) -> Double.compare(b.spikScore, a.spikScore)) //Changed!
-                .limit(count) //Changed!
-                .toList(); //Changed!
-    } //Changed!
+        return candidates.stream()
+                .sorted((a, b) -> Double.compare(b.spikScore, a.spikScore))
+                .limit(count)
+                .toList();
+    }
 
     @Tool(name = "pick_spikar_across_laps",
             description = "Välj N spikar (vinnare) från olika lopp/avd för datum+bana+spelform. Tar bästa top1 per avd och väljer sedan de N starkaste.")
-    public List<WinnerSuggestion> pickSpikarAcrossLaps(String dateOrPhrase, String banKodOrTrack, String spelFormOrPhrase, Integer count) { //Changed!
+    public List<WinnerSuggestion> pickSpikarAcrossLaps(String dateOrPhrase, String banKodOrTrack, String spelFormOrPhrase, Integer count) {
 
-        if (count == null || count <= 0) count = 2; //Changed!
+        if (count == null || count <= 0) count = 2;
 
-        List<LoppTopN> perLap = topByDayTrackForm(dateOrPhrase, banKodOrTrack, spelFormOrPhrase, 2); //Changed! (1 -> 2)
+        List<LoppTopN> perLap = topByDayTrackForm(dateOrPhrase, banKodOrTrack, spelFormOrPhrase, 2);
 
         return perLap.stream()
-                .map(x -> { //Changed!
-                    if (x.top == null || x.top.isEmpty()) return null; //Changed!
-                    WinnerSuggestion first = x.top.get(0); //Changed!
-                    WinnerSuggestion second = (x.top.size() > 1) ? x.top.get(1) : null; //Changed!
-                    double edge = (second == null) ? 0.0 : (first.score - second.score); //Changed!
-                    double spikScore = first.score + edge; //Changed!
-                    return new WinnerSuggestion( //Changed!
-                            first.name, first.banKod, first.lap, first.startDate, first.spelForm, //Changed!
-                            spikScore, first.variants, first.starters, //Changed!
-                            first.avgAnalys, first.avgPrestation, first.avgTid, first.avgMotstand //Changed!
-                    ); //Changed!
+                .map(x -> {
+                    if (x.top == null || x.top.isEmpty()) return null;
+                    WinnerSuggestion first = x.top.get(0);
+                    WinnerSuggestion second = (x.top.size() > 1) ? x.top.get(1) : null;
+                    double edge = (second == null) ? 0.0 : (first.score - second.score);
+                    double spikScore = first.score + edge;
+                    return new WinnerSuggestion(
+                            first.name, first.banKod, first.lap, first.startDate, first.spelForm,
+                            spikScore, first.variants, first.starters,
+                            first.avgAnalys, first.avgPrestation, first.avgTid, first.avgMotstand
+                    );
                 })
-                .filter(Objects::nonNull) //Changed!
-                .sorted((a, b) -> Double.compare(b.score, a.score)) //Changed!
-                .limit(count) //Changed!
-                .toList(); //Changed!
+                .filter(Objects::nonNull)
+                .sorted((a, b) -> Double.compare(b.score, a.score))
+                .limit(count)
+                .toList();
     }
 
     @Tool(name = "pick_spikar_by_phrase",
             description = "Tolka svensk fras och välj 2 spikar från olika avdelningar. Ex: 'Ge mig 2 spikar på Solvalla 2025-12-03 spelform vinnare'")
-    public List<WinnerSuggestion> pickSpikarByPhrase(String phrase, Integer count) { //Changed!
-        return pickSpikarAcrossLaps(phrase, phrase, phrase, count); //Changed!
+    public List<WinnerSuggestion> pickSpikarByPhrase(String phrase, Integer count) {
+        return pickSpikarAcrossLaps(phrase, phrase, phrase, count);
     }
 
-    // ------------------------------------------------------------
-    // NYTT: Prediktion med historik över ALLA banor före datumet
-    // ------------------------------------------------------------
+    public static class HistoryStats {
+        public String horse;
+        public int races;
+        public int top6;
+        public int wins;
+        public double winRate;
+        public double top6Rate;
+        public Double avgPlacementTop6;
+        public Integer lastDate;
 
-    public static class HistoryStats { //Changed!
-        public String horse; //Changed!
-        public int races; //Changed!
-        public int top6; //Changed!
-        public int wins; //Changed!
-        public double winRate; //Changed!
-        public double top6Rate; //Changed!
-        public Double avgPlacementTop6; //Changed!
-        public Integer lastDate; //Changed!
+        public HistoryStats() {}
 
-        public HistoryStats() {} //Changed!
+        public HistoryStats(String horse, int races, int top6, int wins, double winRate, double top6Rate, Double avgPlacementTop6, Integer lastDate) {
+            this.horse = horse;
+            this.races = races;
+            this.top6 = top6;
+            this.wins = wins;
+            this.winRate = winRate;
+            this.top6Rate = top6Rate;
+            this.avgPlacementTop6 = avgPlacementTop6;
+            this.lastDate = lastDate;
+        }
+    }
 
-        public HistoryStats(String horse, int races, int top6, int wins, double winRate, double top6Rate, Double avgPlacementTop6, Integer lastDate) { //Changed!
-            this.horse = horse; //Changed!
-            this.races = races; //Changed!
-            this.top6 = top6; //Changed!
-            this.wins = wins; //Changed!
-            this.winRate = winRate; //Changed!
-            this.top6Rate = top6Rate; //Changed!
-            this.avgPlacementTop6 = avgPlacementTop6; //Changed!
-            this.lastDate = lastDate; //Changed!
-        } //Changed!
-    } //Changed!
+    public static class WinnerWithHistory {
+        public WinnerSuggestion pick;
+        public double combinedScore;
+        public double historyBoost;
+        public HistoryStats history;
 
-    public static class WinnerWithHistory { //Changed!
-        public WinnerSuggestion pick; //Changed!
-        public double combinedScore; //Changed!
-        public double historyBoost; //Changed!
-        public HistoryStats history; //Changed!
+        public WinnerWithHistory() {}
 
-        public WinnerWithHistory() {} //Changed!
+        public WinnerWithHistory(WinnerSuggestion pick, double combinedScore, double historyBoost, HistoryStats history) {
+            this.pick = pick;
+            this.combinedScore = combinedScore;
+            this.historyBoost = historyBoost;
+            this.history = history;
+        }
+    }
 
-        public WinnerWithHistory(WinnerSuggestion pick, double combinedScore, double historyBoost, HistoryStats history) { //Changed!
-            this.pick = pick; //Changed!
-            this.combinedScore = combinedScore; //Changed!
-            this.historyBoost = historyBoost; //Changed!
-            this.history = history; //Changed!
-        } //Changed!
-    } //Changed!
+    public static class LapPredictionWithHistory {
+        public String lap;
+        public List<WinnerWithHistory> top;
+        public LapPredictionWithHistory() {}
+        public LapPredictionWithHistory(String lap, List<WinnerWithHistory> top) {
+            this.lap = lap;
+            this.top = top;
+        }
+    }
 
-    public static class LapPredictionWithHistory { //Changed!
-        public String lap; //Changed!
-        public List<WinnerWithHistory> top; //Changed!
-        public LapPredictionWithHistory() {} //Changed!
-        public LapPredictionWithHistory(String lap, List<WinnerWithHistory> top) { //Changed!
-            this.lap = lap; //Changed!
-            this.top = top; //Changed!
-        } //Changed!
-    } //Changed!
+    public static class TrackPredictionWithHistory {
+        public String banKod;
+        public String spelFormUsed;
+        public List<LapPredictionWithHistory> laps;
+        public TrackPredictionWithHistory() {}
+        public TrackPredictionWithHistory(String banKod, String spelFormUsed, List<LapPredictionWithHistory> laps) {
+            this.banKod = banKod;
+            this.spelFormUsed = spelFormUsed;
+            this.laps = laps;
+        }
+    }
 
-    public static class TrackPredictionWithHistory { //Changed!
-        public String banKod; //Changed!
-        public String spelFormUsed; //Changed!
-        public List<LapPredictionWithHistory> laps; //Changed!
-        public TrackPredictionWithHistory() {} //Changed!
-        public TrackPredictionWithHistory(String banKod, String spelFormUsed, List<LapPredictionWithHistory> laps) { //Changed!
-            this.banKod = banKod; //Changed!
-            this.spelFormUsed = spelFormUsed; //Changed!
-            this.laps = laps; //Changed!
-        } //Changed!
-    } //Changed!
+    public static class DayPredictionWithHistory {
+        public Integer startDate;
+        public String requestedSpelForm;
+        public List<TrackPredictionWithHistory> tracks;
+        public DayPredictionWithHistory() {}
+        public DayPredictionWithHistory(Integer startDate, String requestedSpelForm, List<TrackPredictionWithHistory> tracks) {
+            this.startDate = startDate;
+            this.requestedSpelForm = requestedSpelForm;
+            this.tracks = tracks;
+        }
+    }
 
-    public static class DayPredictionWithHistory { //Changed!
-        public Integer startDate; //Changed!
-        public String requestedSpelForm; //Changed!
-        public List<TrackPredictionWithHistory> tracks; //Changed!
-        public DayPredictionWithHistory() {} //Changed!
-        public DayPredictionWithHistory(Integer startDate, String requestedSpelForm, List<TrackPredictionWithHistory> tracks) { //Changed!
-            this.startDate = startDate; //Changed!
-            this.requestedSpelForm = requestedSpelForm; //Changed!
-            this.tracks = tracks; //Changed!
-        } //Changed!
-    } //Changed!
+    @Tool(
+            name = "predict_day_all_tracks_using_history",
+            description = "För ett givet datum+spelform: listar alla banor+lopp som finns (snapshot), plockar toppkandidater per lopp och justerar rankingen med historik före datumet över ALLA banor. Historik tolkar topp6 via '(1)-(6)' i hästnamn."
+    )
+    public DayPredictionWithHistory predictDayAllTracksUsingHistory(String dateOrPhrase, String spelFormOrPhrase, Integer topN, Integer historyLimitPerHorse) {
+        Integer targetDate = parseDateFlexible(dateOrPhrase);
+        if (targetDate == null) return new DayPredictionWithHistory(null, null, List.of());
 
-    @Tool( //Changed!
-            name = "predict_day_all_tracks_using_history", //Changed!
-            description = "För ett givet datum+spelform: listar alla banor+lopp som finns (snapshot), plockar toppkandidater per lopp och justerar rankingen med historik före datumet över ALLA banor. Historik tolkar topp6 via '(1)-(6)' i hästnamn." //Changed!
-    ) //Changed!
-    public DayPredictionWithHistory predictDayAllTracksUsingHistory(String dateOrPhrase, String spelFormOrPhrase, Integer topN, Integer historyLimitPerHorse) { //Changed!
-        Integer targetDate = parseDateFlexible(dateOrPhrase); //Changed!
-        if (targetDate == null) return new DayPredictionWithHistory(null, null, List.of()); //Changed!
+        if (topN == null || topN <= 0) topN = 3;
+        if (historyLimitPerHorse == null || historyLimitPerHorse <= 0) historyLimitPerHorse = 2000;
 
-        if (topN == null || topN <= 0) topN = 3; //Changed!
-        if (historyLimitPerHorse == null || historyLimitPerHorse <= 0) historyLimitPerHorse = 200; //Changed!
+        String form = parseSpelFormFlexible(spelFormOrPhrase);
+        if (isAggregatorSpelForm(form)) form = "vinnare";
+        String requestedForm = (form == null ? "vinnare" : form);
 
-        String form = parseSpelFormFlexible(spelFormOrPhrase); //Changed!
-        if (isAggregatorSpelForm(form)) form = "vinnare"; //Changed!
-        String requestedForm = (form == null ? "vinnare" : form); //Changed!
+        DaySnapshot snap = snapshotByDateFormAllTracks(String.valueOf(targetDate), requestedForm);
+        if (snap == null || snap.tracks == null || snap.tracks.isEmpty()) {
+            return new DayPredictionWithHistory(targetDate, requestedForm, List.of());
+        }
 
-        DaySnapshot snap = snapshotByDateFormAllTracks(String.valueOf(targetDate), requestedForm); //Changed!
-        if (snap == null || snap.tracks == null || snap.tracks.isEmpty()) { //Changed!
-            return new DayPredictionWithHistory(targetDate, requestedForm, List.of()); //Changed!
-        } //Changed!
+        Map<String, HistoryStats> historyCache = new HashMap<>();
+        List<TrackPredictionWithHistory> outTracks = new ArrayList<>();
 
-        Map<String, HistoryStats> historyCache = new HashMap<>(); //Changed!
-        List<TrackPredictionWithHistory> outTracks = new ArrayList<>(); //Changed!
+        for (TrackSnapshot t : snap.tracks) {
+            if (t == null || t.laps == null) continue;
 
-        for (TrackSnapshot t : snap.tracks) { //Changed!
-            if (t == null || t.laps == null) continue; //Changed!
+            List<LapPredictionWithHistory> outLaps = new ArrayList<>();
 
-            List<LapPredictionWithHistory> outLaps = new ArrayList<>(); //Changed!
+            for (LapSnapshot l : t.laps) {
+                if (l == null || l.lap == null) continue;
 
-            for (LapSnapshot l : t.laps) { //Changed!
-                if (l == null || l.lap == null) continue; //Changed!
+                int candidateN = Math.max(topN * 2, 6);
 
-                int candidateN = Math.max(topN * 2, 6); //Changed!
+                List<WinnerSuggestion> candidates = pickWinnerAcrossStarters(
+                        String.valueOf(targetDate),
+                        t.banKod,
+                        l.lap,
+                        requestedForm,
+                        candidateN
+                );
 
-                List<WinnerSuggestion> candidates = pickWinnerAcrossStarters( //Changed!
-                        String.valueOf(targetDate), //Changed!
-                        t.banKod, //Changed!
-                        l.lap, //Changed!
-                        requestedForm, //Changed!
-                        candidateN //Changed!
-                ); //Changed!
+                if (candidates == null || candidates.isEmpty()) {
+                    outLaps.add(new LapPredictionWithHistory(l.lap, List.of()));
+                    continue;
+                }
 
-                if (candidates == null || candidates.isEmpty()) { //Changed!
-                    outLaps.add(new LapPredictionWithHistory(l.lap, List.of())); //Changed!
-                    continue; //Changed!
-                } //Changed!
+                List<WinnerWithHistory> ranked = new ArrayList<>();
 
-                List<WinnerWithHistory> ranked = new ArrayList<>(); //Changed!
+                for (WinnerSuggestion w : candidates) {
+                    if (w == null || w.name == null) continue;
 
-                for (WinnerSuggestion w : candidates) { //Changed!
-                    if (w == null || w.name == null) continue; //Changed!
-
-                    String baseName = stripPlacementFromName(w.name); //Changed!
-                    if (baseName == null || baseName.isBlank()) continue; //Changed!
+                    String baseName = stripPlacementFromName(w.name);
+                    if (baseName == null || baseName.isBlank()) continue;
 
                     Integer finalHistoryLimitPerHorse = historyLimitPerHorse;
-                    HistoryStats hs = historyCache.computeIfAbsent( //Changed!
-                            normalize(baseName), //Changed!
-                            k -> buildHistoryStatsForHorse(baseName, targetDate, requestedForm, finalHistoryLimitPerHorse) //Changed!
-                    ); //Changed!
+                    HistoryStats hs = historyCache.computeIfAbsent(
+                            normalize(baseName),
+                            k -> buildHistoryStatsForHorse(baseName, targetDate, requestedForm, finalHistoryLimitPerHorse)
+                    );
 
-                    double boost = scoreBoostFromHistory(hs); //Changed!
-                    double combined = w.score + boost; //Changed!
+                    double boost = scoreBoostFromHistory(hs);
+                    double combined = w.score + boost;
 
-                    ranked.add(new WinnerWithHistory(w, combined, boost, hs)); //Changed!
-                } //Changed!
+                    ranked.add(new WinnerWithHistory(w, combined, boost, hs));
+                }
 
-                List<WinnerWithHistory> top = ranked.stream() //Changed!
-                        .sorted((a, b) -> Double.compare(b.combinedScore, a.combinedScore)) //Changed!
-                        .limit(topN) //Changed!
-                        .toList(); //Changed!
+                List<WinnerWithHistory> top = ranked.stream()
+                        .sorted((a, b) -> Double.compare(b.combinedScore, a.combinedScore))
+                        .limit(topN)
+                        .toList();
 
-                outLaps.add(new LapPredictionWithHistory(l.lap, top)); //Changed!
-            } //Changed!
+                outLaps.add(new LapPredictionWithHistory(l.lap, top));
+            }
 
-            outTracks.add(new TrackPredictionWithHistory(t.banKod, t.spelFormUsed, outLaps)); //Changed!
-        } //Changed!
+            outTracks.add(new TrackPredictionWithHistory(t.banKod, t.spelFormUsed, outLaps));
+        }
 
-        return new DayPredictionWithHistory(targetDate, requestedForm, outTracks); //Changed!
-    } //Changed!
+        return new DayPredictionWithHistory(targetDate, requestedForm, outTracks);
+    }
 
-    private HistoryStats buildHistoryStatsForHorse(String baseName, Integer beforeDate, String spelForm, int limit) { //Changed!
-        if (baseName == null || baseName.isBlank() || beforeDate == null) { //Changed!
-            return new HistoryStats(baseName, 0, 0, 0, 0, 0, null, null); //Changed!
-        } //Changed!
+    private HistoryStats buildHistoryStatsForHorse(String baseName, Integer beforeDate, String spelForm, int limit) {
+        if (baseName == null || baseName.isBlank() || beforeDate == null) {
+            return new HistoryStats(baseName, 0, 0, 0, 0, 0, null, null);
+        }
 
-        List<HorseResult> rows = horseResultRepo.findByNameOfHorseContainingIgnoreCaseOrderByStartDateDesc(baseName); //Changed!
-        if (rows == null || rows.isEmpty()) { //Changed!
-            return new HistoryStats(baseName, 0, 0, 0, 0, 0, null, null); //Changed!
-        } //Changed!
+        List<HorseResult> rows = horseResultRepo.findByNameOfHorseContainingIgnoreCaseOrderByStartDateDesc(baseName);
+        if (rows == null || rows.isEmpty()) {
+            return new HistoryStats(baseName, 0, 0, 0, 0, 0, null, null);
+        }
 
-        int races = 0, top6 = 0, wins = 0; //Changed!
-        double sumPlacement = 0; //Changed!
-        int placementCount = 0; //Changed!
-        Integer lastDate = null; //Changed!
+        int races = 0, top6 = 0, wins = 0;
+        double sumPlacement = 0;
+        int placementCount = 0;
+        Integer lastDate = null;
 
-        Set<String> seenRace = new HashSet<>(); //Changed!
+        Set<String> seenRace = new HashSet<>();
 
-        for (HorseResult r : rows) { //Changed!
-            if (r == null) continue; //Changed!
+        for (HorseResult r : rows) {
+            if (r == null) continue;
 
-            Integer d = r.getStartDate(); //Changed!
-            if (d == null || d >= beforeDate) continue; //Changed!
+            Integer d = r.getStartDate();
+            if (d == null || d >= beforeDate) continue;
 
-            String rowBase = stripPlacementFromName(r.getNameOfHorse()); //Changed!
-            if (rowBase == null || !rowBase.equalsIgnoreCase(baseName)) continue; //Changed!
+            String rowBase = stripPlacementFromName(r.getNameOfHorse());
+            if (rowBase == null || !rowBase.equalsIgnoreCase(baseName)) continue;
 
-            if (spelForm != null && r.getSpelForm() != null) { //Changed!
-                if (!normalize(r.getSpelForm()).equals(normalize(spelForm))) continue; //Changed!
-            } //Changed!
+            if (spelForm != null && r.getSpelForm() != null) {
+                if (!normalize(r.getSpelForm()).equals(normalize(spelForm))) continue;
+            }
 
-            String raceKey = d + "|" + r.getBanKod() + "|" + r.getLap(); //Changed!
-            if (!seenRace.add(raceKey)) continue; //Changed!
+            String raceKey = d + "|" + r.getBanKod() + "|" + r.getLap();
+            if (!seenRace.add(raceKey)) continue;
 
-            races++; //Changed!
-            if (lastDate == null) lastDate = d; //Changed!
+            races++;
+            if (lastDate == null) lastDate = d;
 
-            Integer p = placementTop6FromName(r.getNameOfHorse()); //Changed!
-            if (p != null) { //Changed!
-                top6++; //Changed!
-                if (p == 1) wins++; //Changed!
-                sumPlacement += p; //Changed!
-                placementCount++; //Changed!
-            } //Changed!
+            Integer p = placementTop6FromName(r.getNameOfHorse());
+            if (p != null) {
+                top6++;
+                if (p == 1) wins++;
+                sumPlacement += p;
+                placementCount++;
+            }
 
-            if (races >= limit) break; //Changed!
-        } //Changed!
+            if (races >= limit) break;
+        }
 
-        double winRate = (races == 0) ? 0.0 : (wins / (double) races); //Changed!
-        double top6Rate = (races == 0) ? 0.0 : (top6 / (double) races); //Changed!
-        Double avgP = (placementCount == 0) ? null : (sumPlacement / placementCount); //Changed!
+        double winRate = (races == 0) ? 0.0 : (wins / (double) races);
+        double top6Rate = (races == 0) ? 0.0 : (top6 / (double) races);
+        Double avgP = (placementCount == 0) ? null : (sumPlacement / placementCount);
 
-        return new HistoryStats(baseName, races, top6, wins, winRate, top6Rate, avgP, lastDate); //Changed!
-    } //Changed!
+        return new HistoryStats(baseName, races, top6, wins, winRate, top6Rate, avgP, lastDate);
+    }
 
-    private static double scoreBoostFromHistory(HistoryStats hs) { //Changed!
-        if (hs == null || hs.races <= 0) return 0.0; //Changed!
+    private static double scoreBoostFromHistory(HistoryStats hs) {
+        if (hs == null || hs.races <= 0) return 0.0;
 
-        double boost = 15.0 * hs.winRate + 5.0 * hs.top6Rate; //Changed!
+        double boost = 15.0 * hs.winRate + 5.0 * hs.top6Rate;
 
-        if (hs.avgPlacementTop6 != null) { //Changed!
-            boost += Math.max(0.0, (7.0 - hs.avgPlacementTop6) * 0.5); //Changed!
-        } //Changed!
+        if (hs.avgPlacementTop6 != null) {
+            boost += Math.max(0.0, (7.0 - hs.avgPlacementTop6) * 0.5);
+        }
 
-        return boost; //Changed!
-    } //Changed!
+        return boost;
+    }
 
-    // ------------------------------------------------------------
     // Helpers
-    // ------------------------------------------------------------
 
-    private static int safeInt(String s) { //Changed!
-        if (s == null) return 0; //Changed!
-        try { //Changed!
-            String cleaned = s.replaceAll("[^0-9-]", ""); //Changed!
-            if (cleaned.isBlank() || "-".equals(cleaned)) return 0; //Changed!
-            return Integer.parseInt(cleaned); //Changed!
-        } catch (Exception e) { //Changed!
-            return 0; //Changed!
-        } //Changed!
-    } //Changed!
+    private static final double STARTER_ZERO_WEIGHT = 3.0;
 
+    private static double starterWeight(int starter) {
+        if (starter <= 0) return STARTER_ZERO_WEIGHT;
+        return Math.sqrt(starter);
+    }
+
+    private static int safeInt(String s) {
+        if (s == null) return 0;
+        try {
+            String cleaned = s.replaceAll("[^0-9-]", "");
+            if (cleaned.isBlank() || "-".equals(cleaned)) return 0;
+            return Integer.parseInt(cleaned);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
 
     private static String normalize(String s) {
         if (s == null) return null;
@@ -1078,8 +1054,7 @@ public class TravTools {
         if (m.find()) {
             try {
                 return Integer.parseInt(m.group(3));
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) { }
         }
         return null;
     }
@@ -1184,10 +1159,6 @@ public class TravTools {
         }
     }
 
-    // ------------------------------------------------------------
-    // DTO
-    // ------------------------------------------------------------
-
     public static class WinnerSuggestion {
         public String name;
         public String banKod;
@@ -1202,8 +1173,7 @@ public class TravTools {
         public int avgTid;
         public int avgMotstand;
 
-        public WinnerSuggestion() {
-        }
+        public WinnerSuggestion() { }
 
         public WinnerSuggestion(String name, String banKod, String lap, Integer startDate, String spelForm,
                                 double score, int variants, String starters,
@@ -1222,96 +1192,102 @@ public class TravTools {
             this.avgMotstand = avgMotstand;
         }
     }
-    public static class GlobalSpikSuggestionWithHistory { //Changed!
-        public String name; //Changed!
-        public String banKod; //Changed!
-        public String lap; //Changed!
-        public Integer startDate; //Changed!
-        public String spelForm; //Changed!
-        public double spikScore; //Changed!
-        public double combinedWinnerScore; //Changed!
-        public double edgeVsSecond; //Changed!
-        public String secondName; //Changed!
-        public Double combinedSecondScore; //Changed!
-        public double historyBoost; //Changed!
-        public String starters; //Changed!
 
-        public GlobalSpikSuggestionWithHistory() {} //Changed!
+    public static class GlobalSpikSuggestionWithHistory {
+        public String name;
+        public String banKod;
+        public String lap;
+        public Integer startDate;
+        public String spelForm;
+        public double spikScore;
+        public double combinedWinnerScore;
+        public double edgeVsSecond;
+        public String secondName;
+        public Double combinedSecondScore;
+        public double historyBoost;
+        public String starters;
 
-        public GlobalSpikSuggestionWithHistory( //Changed!
-                                                String name, String banKod, String lap, Integer startDate, String spelForm, //Changed!
-                                                double spikScore, double combinedWinnerScore, double edgeVsSecond, //Changed!
-                                                String secondName, Double combinedSecondScore, double historyBoost, String starters //Changed!
-        ) { //Changed!
-            this.name = name; //Changed!
-            this.banKod = banKod; //Changed!
-            this.lap = lap; //Changed!
-            this.startDate = startDate; //Changed!
-            this.spelForm = spelForm; //Changed!
-            this.spikScore = spikScore; //Changed!
-            this.combinedWinnerScore = combinedWinnerScore; //Changed!
-            this.edgeVsSecond = edgeVsSecond; //Changed!
-            this.secondName = secondName; //Changed!
-            this.combinedSecondScore = combinedSecondScore; //Changed!
-            this.historyBoost = historyBoost; //Changed!
-            this.starters = starters; //Changed!
-        } //Changed!
-    } //Changed!
+        public GlobalSpikSuggestionWithHistory() {}
 
-    @Tool( //Changed!
-            name = "pick_spikar_all_tracks_using_history", //Changed!
-            description = "Välj N spikar globalt över alla banor för ett datum+spelform, baserat på predict_day_all_tracks_using_history. Tar top2 per lopp och rankar på spikScore = combinedWinnerScore + (combinedWinnerScore - combinedSecondScore)." //Changed!
-    ) //Changed!
-    public List<GlobalSpikSuggestionWithHistory> pickSpikarAllTracksUsingHistory( //Changed!
-                                                                                  String dateOrPhrase, String spelFormOrPhrase, Integer count, Integer historyLimitPerHorse //Changed!
-    ) { //Changed!
-        if (count == null || count <= 0) count = 2; //Changed!
-        if (historyLimitPerHorse == null || historyLimitPerHorse <= 0) historyLimitPerHorse = 200; //Changed!
+        public GlobalSpikSuggestionWithHistory(
+                String name, String banKod, String lap, Integer startDate, String spelForm,
+                double spikScore, double combinedWinnerScore, double edgeVsSecond,
+                String secondName, Double combinedSecondScore, double historyBoost, String starters
+        ) {
+            this.name = name;
+            this.banKod = banKod;
+            this.lap = lap;
+            this.startDate = startDate;
+            this.spelForm = spelForm;
+            this.spikScore = spikScore;
+            this.combinedWinnerScore = combinedWinnerScore;
+            this.edgeVsSecond = edgeVsSecond;
+            this.secondName = secondName;
+            this.combinedSecondScore = combinedSecondScore;
+            this.historyBoost = historyBoost;
+            this.starters = starters;
+        }
+    }
 
-        Integer targetDate = parseDateFlexible(dateOrPhrase); //Changed!
-        if (targetDate == null) return List.of(); //Changed!
+    @Tool(
+            name = "pick_spikar_all_tracks_using_history",
+            description = "Välj N spikar globalt över alla banor för ett datum+spelform, baserat på predict_day_all_tracks_using_history. Tar top2 per lopp och rankar på spikScore = combinedWinnerScore + (combinedWinnerScore - combinedSecondScore)."
+    )
+    public List<GlobalSpikSuggestionWithHistory> pickSpikarAllTracksUsingHistory(
+            String dateOrPhrase, String spelFormOrPhrase, Integer count, Integer historyLimitPerHorse
+    ) {
+        if (count == null || count <= 0) count = 2;
+        if (historyLimitPerHorse == null || historyLimitPerHorse <= 0) historyLimitPerHorse = 200;
 
-        String form = parseSpelFormFlexible(spelFormOrPhrase); //Changed!
-        if (isAggregatorSpelForm(form)) form = "vinnare"; //Changed!
-        if (form == null) form = "vinnare"; //Changed!
+        Integer targetDate = parseDateFlexible(dateOrPhrase);
+        if (targetDate == null) return List.of();
 
-        DayPredictionWithHistory day = predictDayAllTracksUsingHistory( //Changed!
-                String.valueOf(targetDate), form, 2, historyLimitPerHorse //Changed!
-        ); //Changed!
-        if (day == null || day.tracks == null || day.tracks.isEmpty()) return List.of(); //Changed!
+        String form = parseSpelFormFlexible(spelFormOrPhrase);
+        if (isAggregatorSpelForm(form)) form = "vinnare";
+        if (form == null) form = "vinnare";
 
-        List<GlobalSpikSuggestionWithHistory> candidates = new ArrayList<>(); //Changed!
+        DayPredictionWithHistory day = predictDayAllTracksUsingHistory(
+                String.valueOf(targetDate), form, 2, historyLimitPerHorse
+        );
+        if (day == null || day.tracks == null || day.tracks.isEmpty()) return List.of();
 
-        for (TrackPredictionWithHistory t : day.tracks) { //Changed!
-            if (t == null || t.laps == null) continue; //Changed!
-            for (LapPredictionWithHistory l : t.laps) { //Changed!
-                if (l == null || l.top == null || l.top.isEmpty()) continue; //Changed!
+        List<GlobalSpikSuggestionWithHistory> candidates = new ArrayList<>();
 
-                WinnerWithHistory first = l.top.get(0); //Changed!
-                WinnerWithHistory second = (l.top.size() > 1) ? l.top.get(1) : null; //Changed!
+        for (TrackPredictionWithHistory t : day.tracks) {
+            if (t == null || t.laps == null) continue;
+            for (LapPredictionWithHistory l : t.laps) {
+                if (l == null || l.top == null || l.top.isEmpty()) continue;
 
-                double w1 = first.combinedScore; //Changed!
-                double w2 = (second == null) ? w1 : second.combinedScore; //Changed!
-                double edge = w1 - w2; //Changed!
-                double spikScore = w1 + edge; //Changed!
+                WinnerWithHistory first = l.top.get(0);
+                WinnerWithHistory second = (l.top.size() > 1) ? l.top.get(1) : null;
 
-                WinnerSuggestion pick = first.pick; //Changed!
-                if (pick == null) continue; //Changed!
+                double w1 = first.combinedScore;
+                double w2 = (second == null) ? w1 : second.combinedScore;
+                double edge = w1 - w2;
+                double spikScore = w1 + edge;
 
-                candidates.add(new GlobalSpikSuggestionWithHistory( //Changed!
-                        pick.name, pick.banKod, pick.lap, pick.startDate, pick.spelForm, //Changed!
-                        spikScore, w1, edge, //Changed!
-                        (second == null ? null : second.pick.name), //Changed!
-                        (second == null ? null : w2), //Changed!
-                        first.historyBoost, pick.starters //Changed!
-                )); //Changed!
-            } //Changed!
-        } //Changed!
+                WinnerSuggestion pick = first.pick;
+                if (pick == null) continue;
 
-        return candidates.stream() //Changed!
-                .sorted((a, b) -> Double.compare(b.spikScore, a.spikScore)) //Changed!
-                .limit(count) //Changed!
-                .toList(); //Changed!
-    } //Changed!
+                candidates.add(new GlobalSpikSuggestionWithHistory(
+                        pick.name, pick.banKod, pick.lap, pick.startDate, pick.spelForm,
+                        spikScore, w1, edge,
+                        (second == null ? null : (second.pick == null ? null : second.pick.name)),
+                        (second == null ? null : w2),
+                        first.historyBoost, pick.starters
+                ));
+            }
+        }
 
+        return candidates.stream()
+                .sorted((a, b) -> Double.compare(b.spikScore, a.spikScore))
+                .limit(count)
+                .toList();
+    }
+
+    private static List<HorseResult> onlyStarterZeroOrAllIfMissing(List<HorseResult> rows) {
+        if (rows == null || rows.isEmpty()) return rows;
+        List<HorseResult> zero = rows.stream().filter(TravTools::isStarterZero).toList();
+        return zero.isEmpty() ? rows : zero;
+    }
 }

@@ -38,12 +38,12 @@ Tolkning & default:
 - Spelform saknas → anta ”vinnare”.
 - ”vem vinner” → spelform = ”vinnare”.
 - Spelform ger 0 rader → försök med ”vinnare”, annars utan spelform.
-- ”lopp”, ”avd”, ”v75-1”, ”gs75-3” osv tolkas som lopp/avdelning.
+- ”lopp”, ”avd”, ”v85-1”, ”v86-3” osv tolkas som lopp/avdelning.
 
 ## Verktygsanvändning (välj den som matchar frågan)
 
 ### TravTools – analys & tips
-- Full fras utan starter → `pick_winner_by_swedish_phrase(phrase, 3)` eller `pick_winner_by_phrase_smart(phrase, 3)` (förstår även ”avd 3”, ”v75-1”).
+- Full fras utan starter → `pick_winner_by_swedish_phrase(phrase, 3)` eller `pick_winner_by_phrase_smart(phrase, 3)` (förstår även ”avd 3”, ”v85-1”).
 - Strukturerat (datum/bana/lopp/ev spelform, utan starter) → `pick_winner_across_starters(dateOrPhrase, banKodOrTrack, lapOrPhrase, spelForm, 3)`.
 - Med starter & spelform → `results_by_date_track_lap_form_starter(date, bana, lopp, spelform, starter)` eller `results_by_swedish_phrase_with_form_and_starter(phrase)`.
 - Speltips (tips=1) → `find_tips_by_swedish_phrase(phrase)` eller `horses_with_speltips(date, bana, lopp)`.

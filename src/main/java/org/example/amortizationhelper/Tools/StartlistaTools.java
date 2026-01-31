@@ -261,7 +261,7 @@ public class StartlistaTools {
         String norm = normalize(lapOrPhrase);
         Matcher m1 = Pattern.compile("\\b(lopp|avd(elning)?)\\s*(\\d{1,2})\\b").matcher(norm);
         if (m1.find()) return Integer.parseInt(m1.group(3));
-        Matcher m2 = Pattern.compile("\\b(v75|v86|gs75|v64|v65|dd|ld)[-: ]?(\\d{1,2})\\b").matcher(norm);
+        Matcher m2 = Pattern.compile("\\b(v85|v86|gs75|v64|v65|dd|ld)[-: ]?(\\d{1,2})\\b").matcher(norm);
         if (m2.find()) return Integer.parseInt(m2.group(2));
         Matcher m3 = Pattern.compile("(\\d{1,2})(?!\\d)").matcher(norm);
         String last = null;

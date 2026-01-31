@@ -29,7 +29,7 @@ import java.nio.charset.StandardCharsets;
 public class AiChatConfig {
 
     @Bean
-    public ChatClient chatClient(ChatClient.Builder builder,
+    public ChatClient chatCliente(ChatClient.Builder builder,
                                  VectorStore vectorStore,
                                  ResourceLoader resourceLoader,
                                  TravTools travTools,

@@ -53,7 +53,7 @@ public class RoiTools {
     }
 
     @Tool(name = "roi_by_date_track_lap",
-            description = "Hämta ROI (totalt/vinnare/plats/trio) för datum, bana och lopp/avd. Accepterar svenska datum, bannamn/bankod samt 'lopp 5', 'avd 3' eller 'v75-1'. Returnerar även hästnamn och startnummer.")
+            description = "Hämta ROI (totalt/vinnare/plats/trio) för datum, bana och lopp/avd. Accepterar svenska datum, bannamn/bankod samt 'lopp 5', 'avd 3' eller 'v85-1'. Returnerar även hästnamn och startnummer.")
     public List<RoiDto> roiByDateTrackLap(String date, String banKodOrTrack, String lapOrPhrase) {
         Integer d = toIntDateFlexible(date);
         if (d == null) return List.of();
@@ -138,7 +138,7 @@ public class RoiTools {
 
 
     @Tool(name = "roi_by_phrase",
-            description = "Tolka en svensk fras (datum/bana/lopp) och hämta ROI. Ex: 'ROI för Solvalla avd 3 den 17 juli 2025' eller 'ROI 2025-07-17 S v75-1'.")
+            description = "Tolka en svensk fras (datum/bana/lopp) och hämta ROI. Ex: 'ROI för Solvalla avd 3 den 17 juli 2025' eller 'ROI 2025-07-17 S v85-1'.")
     public List<RoiDto> roiByPhrase(String phrase) {
         if (phrase == null || phrase.isBlank()) return List.of();
         String norm = normalize(phrase);
@@ -367,7 +367,7 @@ public class RoiTools {
     private static String parseAvdFlexible(String norm) {
         Matcher m1 = Pattern.compile("\\bavd(elning)?\\s*(\\d{1,2})\\b").matcher(norm);
         if (m1.find()) return m1.group(2);
-        Matcher m2 = Pattern.compile("\\b(v75|v86|gs75|v64|v65|dd|ld)[-: ]?(\\d{1,2})\\b").matcher(norm);
+        Matcher m2 = Pattern.compile("\\b(v85|v86|gs75|v64|v65|dd|ld)[-: ]?(\\d{1,2})\\b").matcher(norm);
         if (m2.find()) return m2.group(2);
         return null;
     }

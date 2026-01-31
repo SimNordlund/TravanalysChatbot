@@ -409,7 +409,7 @@ public class TravTools {
     }
 
     @Tool(name = "results_by_date_track_lap_form_starter",
-            description = "Hämta hästar för datum, bana, spelform, lopp och antal starter. Tar naturligt datum/bana/lopp (ex. '2025-09-02', 'Axevalla'/'S', 'lopp 3'), spelform (ex. 'vinnare', 'V75') och starter (ex. '5'). Sortera själv i klienten om du vill.")
+            description = "Hämta hästar för datum, bana, spelform, lopp och antal starter. Tar naturligt datum/bana/lopp (ex. '2025-09-02', 'Axevalla'/'S', 'lopp 3'), spelform (ex. 'vinnare', 'V85') och starter (ex. '5'). Sortera själv i klienten om du vill.")
     public List<HorseResult> resultsByDateTrackLapFormStarter(String dateOrPhrase,
                                                               String banKodOrTrack,
                                                               String lapOrPhrase,
@@ -463,7 +463,8 @@ public class TravTools {
     private static String parseAvdFlexible(String norm) {
         Matcher m1 = Pattern.compile("\\bavd(elning)?\\s*(\\d{1,2})\\b").matcher(norm);
         if (m1.find()) return m1.group(2);
-        Matcher m2 = Pattern.compile("\\b(v75|v86|gs75|v64|v65|dd|ld)[-: ]?(\\d{1,2})\\b").matcher(norm);
+
+        Matcher m2 = Pattern.compile("\\b(v85|v86|v64|v65|dd|ld)[-: ]?(\\d{1,2})\\b").matcher(norm);
         if (m2.find()) return m2.group(2);
         return null;
     }
@@ -619,7 +620,7 @@ public class TravTools {
         public PerLoppBest(String lap, String name, int analys, Integer nr) { this.lap = lap; this.name = name; this.analys = analys; this.nr = nr; }
     }
 
-    @Tool(name = "pick_winner_by_phrase_smart", description = "Som pick_winner_by_swedish_phrase men förstår även 'avd 3' och 'v75-1'.")
+    @Tool(name = "pick_winner_by_phrase_smart", description = "Som pick_winner_by_swedish_phrase men förstår även 'avd 3' och 'v85-1'.")
     public List<WinnerSuggestion> pickWinnerByPhraseSmart(String phrase, Integer topN) {
         if (topN == null || topN <= 0) topN = 3;
         String norm = normalize(phrase);
@@ -1018,8 +1019,6 @@ public class TravTools {
         return boost;
     }
 
-    // Helpers
-
     private static final double STARTER_ZERO_WEIGHT = 3.0;
 
     private static double starterWeight(int starter) {
@@ -1060,10 +1059,23 @@ public class TravTools {
     }
 
     private static String parseLap(String norm) {
+        if (norm == null) return null;
+
+        Matcher avd = Pattern.compile("\\bavd(?:elning)?\\s*(\\d{1,2})\\b").matcher(norm);
+        if (avd.find()) return avd.group(1);
+
+        Matcher pool = Pattern.compile("\\b(v85|v86|gs75|v64|v65|dd|ld)[-: ]?(\\d{1,2})\\b").matcher(norm);
+        if (pool.find()) return pool.group(2);
+
         Matcher m1 = Pattern.compile("\\blopp\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(norm);
         if (m1.find()) return m1.group(1);
 
-        Matcher m2 = Pattern.compile("(\\d{1,2})(?!\\d)").matcher(norm);
+        String scrub = norm
+                .replaceAll("\\b\\d{4}[-/ ]?\\d{2}[-/ ]?\\d{2}\\b", " ")
+                .replaceAll("\\b\\d{8}\\b", " ")
+                .replaceAll("\\b20\\d{2}\\b", " ");
+
+        Matcher m2 = Pattern.compile("(\\d{1,2})(?!\\d)").matcher(scrub);
         String last = null;
         while (m2.find()) last = m2.group(1);
         return last;
@@ -1121,7 +1133,7 @@ public class TravTools {
         Matcher m = Pattern.compile("\\bspelform\\s*([a-z0-9]+)").matcher(n);
         if (m.find()) return m.group(1);
 
-        String[] known = {"vinnare", "plats", "v75", "v86", "gs75", "v64", "v65", "dd", "ld"};
+        String[] known = {"vinnare", "plats", "v86", "v85", "v64", "v65", "dd", "ld"};
         for (String k : known) {
             if (n.contains(k)) return k;
         }
@@ -1148,7 +1160,7 @@ public class TravTools {
 
     private static String parseLapFlexible(String lapOrPhrase) {
         if (lapOrPhrase == null || lapOrPhrase.isBlank()) return null;
-        return parseLap(normalize(lapOrPhrase));
+        return parseLapOrAvdFlexible(lapOrPhrase);
     }
 
     private int parse(String val) {

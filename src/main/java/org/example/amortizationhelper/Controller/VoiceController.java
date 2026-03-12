@@ -109,7 +109,7 @@ public class VoiceController {
     )
     public ResponseEntity<Map<String, Object>> chatWithAudio(
             @RequestPart("file") MultipartFile file,
-            @RequestParam(name = "voice", defaultValue = "NOVA") String voiceName,
+            @RequestParam(name = "voice", defaultValue = "ASH") String voiceName,
             @RequestParam(name = "speed", defaultValue = "1.0") float speed
     ) throws IOException {
 

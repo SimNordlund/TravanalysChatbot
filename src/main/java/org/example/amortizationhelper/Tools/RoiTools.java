@@ -340,7 +340,7 @@ public class RoiTools {
         if (md.find()) { // 2025 default
             int month = Integer.parseInt(md.group(1));
             int day = Integer.parseInt(md.group(2));
-            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return 2025*10000 + month*100 + day;
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return 2026*10000 + month*100 + day;
         }
         return null;
     }

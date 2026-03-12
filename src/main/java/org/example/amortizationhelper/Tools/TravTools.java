@@ -347,7 +347,7 @@ public class TravTools {
 
     @Tool(
             name = "pick_winner_by_swedish_phrase",
-            description = "Tolka en svensk fras med datum, bana, spelform och lopp (utan antal starter) och välj topp N över alla starter. Ex: 'Vem vinner på Solvalla 2025-09-03 med spelform vinnare i lopp 7?'"
+            description = "Tolka en svensk fras med datum, bana, spelform och lopp (utan antal starter) och välj topp N över alla starter. Ex: 'Vem vinner på Solvalla 2026-09-03 med spelform vinnare i lopp 7?'"
     )
     public List<WinnerSuggestion> pickWinnerBySwedishPhrase(String phrase, Integer topN) {
         if (topN == null || topN <= 0) topN = 3;
@@ -409,7 +409,7 @@ public class TravTools {
     }
 
     @Tool(name = "results_by_date_track_lap_form_starter",
-            description = "Hämta hästar för datum, bana, spelform, lopp och antal starter. Tar naturligt datum/bana/lopp (ex. '2025-09-02', 'Axevalla'/'S', 'lopp 3'), spelform (ex. 'vinnare', 'V85') och starter (ex. '5'). Sortera själv i klienten om du vill.")
+            description = "Hämta hästar för datum, bana, spelform, lopp och antal starter. Tar naturligt datum/bana/lopp (ex. '2026-09-02', 'Axevalla'/'S', 'lopp 3'), spelform (ex. 'vinnare', 'V85') och starter (ex. '5'). Sortera själv i klienten om du vill.")
     public List<HorseResult> resultsByDateTrackLapFormStarter(String dateOrPhrase,
                                                               String banKodOrTrack,
                                                               String lapOrPhrase,
@@ -474,7 +474,7 @@ public class TravTools {
         if (md.find()) {
             int month = Integer.parseInt(md.group(1));
             int day = Integer.parseInt(md.group(2));
-            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return 2025 * 10000 + month * 100 + day;
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return 2026 * 10000 + month * 100 + day;
         }
         return null;
     }

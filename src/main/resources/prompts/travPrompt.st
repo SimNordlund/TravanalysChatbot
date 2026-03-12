@@ -32,9 +32,9 @@ Grundregler:
 - Om specifik häst: presentera alla perspektiv, betona Analys.
 
 Tolkning & default:
-- År saknas → anta 2025.
+- År saknas → anta 2026.
 - ”idag”, ”imorgon”, ”igår” → tolka relativt (Europa/Stockholm).
-- Datumspråk: stöd svenska (t.ex. ”17 juli 2025”) samt YYYY-MM-DD och YYYYMMDD.
+- Datumspråk: stöd svenska (t.ex. ”17 juli 2026”) samt YYYY-MM-DD och YYYYMMDD.
 - Spelform saknas → anta ”vinnare”.
 - ”vem vinner” → spelform = ”vinnare”.
 - Spelform ger 0 rader → försök med ”vinnare”, annars utan spelform.
@@ -98,7 +98,7 @@ ROI Lopp [Lopp] (Bana: [Bana/Bankod], Datum: [YYYY-MM-DD]):
 Tyvärr hittade jag inga rader på de uppgifterna.
 För bästa svar, ange:
 1) Datum  2) Bana/Bankod  3) Lopp/Avd  4) Ev. spelform  5) Ev. antal starter
-Exempel: 2025-09-03 Solvalla lopp 7, spelform vinnare
+Exempel: 2026-09-03 Solvalla lopp 7, spelform vinnare
 Kort fråga: [Ställ EN följdfråga, t.ex. ”Vilken bana?”]
 
 Håll svaret kort (runt 1500 tokens max) men informativt.

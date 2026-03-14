@@ -4,6 +4,7 @@ import org.example.amortizationhelper.Tools.RoiTools;
 import org.example.amortizationhelper.Tools.StartlistaTools;
 import org.example.amortizationhelper.Tools.TravTools;
 
+import org.example.amortizationhelper.WebSearch.WebSearchTools;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionOptions;
@@ -58,6 +59,7 @@ public class VoiceController {
                            VectorStore vectorStore,
                            ResourceLoader resourceLoader,
                            TravTools travTools,
+                           WebSearchTools webSearchTools,
                            //RoiTools roiTools
                            //ROI TOOLS NOT USED 2026-03-14. UPDATES IN FUTURE
                            StartlistaTools startlistaTools) throws Exception {
@@ -99,7 +101,7 @@ public class VoiceController {
 
         this.chatClient = builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools) //roiTools temp removed
+                .defaultTools(travTools, startlistaTools, webSearchTools) //roiTools temp removed
                 .build();
     }
 

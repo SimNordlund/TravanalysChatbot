@@ -1,6 +1,7 @@
 package org.example.amortizationhelper.config;
 
 import lombok.RequiredArgsConstructor;
+import org.example.amortizationhelper.WebSearch.WebSearchTools;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
@@ -34,7 +35,8 @@ public class AiChatConfig {
                                  ResourceLoader resourceLoader,
                                  TravTools travTools,
                                  StartlistaTools startlistaTools,
-                                 RoiTools roiTools) throws Exception {
+                                 //RoiTools roiTools,
+                                  WebSearchTools webSearchTools) throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()
                 .vectorStore(vectorStore)
@@ -71,7 +73,7 @@ public class AiChatConfig {
 
         return builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, roiTools)
+                .defaultTools(travTools, startlistaTools, webSearchTools) //roiTools temp removed 2026-03-14
                 .build();
     }
 }

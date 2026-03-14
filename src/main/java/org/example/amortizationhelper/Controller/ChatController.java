@@ -3,6 +3,7 @@ package org.example.amortizationhelper.Controller;
 import org.example.amortizationhelper.Tools.RoiTools;
 import org.example.amortizationhelper.Tools.StartlistaTools;
 import org.example.amortizationhelper.Tools.TravTools;
+import org.example.amortizationhelper.WebSearch.WebSearchTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -40,7 +41,8 @@ public class ChatController {
                           ResourceLoader resourceLoader,
                           TravTools travTools,
                           StartlistaTools startlistaTools,
-                          RoiTools roiTools) throws Exception {
+                          //RoiTools roiTools,
+                          WebSearchTools webSearchTools) throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()
                 .vectorStore(vectorStore)
@@ -77,7 +79,7 @@ public class ChatController {
 
         this.chatClient = builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, roiTools)
+                .defaultTools(travTools, startlistaTools, webSearchTools) //roiTools temp removed
                 .build();
     }
 

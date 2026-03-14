@@ -16,10 +16,13 @@ import java.util.regex.Pattern;
 
 //TODO
 //FELSÖK ROI RÄKNAR NOG FEL PGA FLERA STARTER
+// ROI NOT USED AS FOR NOw will update in the future
+
 @Component
 @AllArgsConstructor
 public class RoiTools {
 
+    /*
     private final RoiRepo roiRepo;
 
     @Tool(name = "roi_dates_all", description = "Lista tillgängliga datum i ROI (senaste först).")
@@ -371,4 +374,5 @@ public class RoiTools {
         if (m2.find()) return m2.group(2);
         return null;
     }
+     */
 }

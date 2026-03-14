@@ -58,8 +58,9 @@ public class VoiceController {
                            VectorStore vectorStore,
                            ResourceLoader resourceLoader,
                            TravTools travTools,
-                           StartlistaTools startlistaTools,
-                           RoiTools roiTools) throws Exception {
+                           //RoiTools roiTools
+                           //ROI TOOLS NOT USED 2026-03-14. UPDATES IN FUTURE
+                           StartlistaTools startlistaTools) throws Exception {
         this.sttModel = sttModel;
         this.ttsModel = ttsModel;
 
@@ -98,7 +99,7 @@ public class VoiceController {
 
         this.chatClient = builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, roiTools)
+                .defaultTools(travTools, startlistaTools) //roiTools temp removed
                 .build();
     }
 

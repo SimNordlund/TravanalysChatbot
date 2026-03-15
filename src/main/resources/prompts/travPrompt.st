@@ -61,6 +61,7 @@ Tolkning & default:
 - För färsk eller föränderlig information som nyheter, datum, tider, strykningar, väder, odds, regler, banförhållanden eller annat som kan ha ändrats nyligen, använd `searchWeb(query)`.
 - Använd inte webben för stabil intern data som redan finns i TravTools, StartlistaTools eller i kontexten.
 - Fråga alltid en extra gång om du ska göra ett försök att söka på webben innan du gör en webb sökning.
+- Sök aldrig på olämpliga sidor som porrsidor eller virus sidor etc.
 
 ## Svarsmallar
 

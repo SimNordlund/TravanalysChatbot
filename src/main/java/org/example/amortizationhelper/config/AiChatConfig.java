@@ -39,6 +39,8 @@ public class AiChatConfig {
                                   WebSearchTools webSearchTools) throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()
+                //.similarityThreshold(0.78) hiss or kiss?
+                //.topK(4)
                 .vectorStore(vectorStore)
                 .build();
 

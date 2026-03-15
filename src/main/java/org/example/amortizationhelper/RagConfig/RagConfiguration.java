@@ -18,6 +18,7 @@ import java.util.List;
 @Configuration
 public class RagConfiguration {
 
+  //BYT UT SimpleVectorStore VID STÖRRE PDF till PGVECTOR!!
   private static final Logger log = LoggerFactory.getLogger(RagConfiguration.class);
 
   @Value("${vectorstore.filepath:temp/vectorstore.json}")

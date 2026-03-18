@@ -22,7 +22,7 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- Spring AI BOM -->
+
       <dependency>
         <groupId>org.springframework.ai</groupId>
         <artifactId>spring-ai-bom</artifactId>
@@ -34,21 +34,16 @@
   </dependencyManagement>
 
   <dependencies>
-    <!-- Spring Boot Web -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
-    <!-- Spring AI Chat Client -->
-
-    <!-- OpenAI model support -->
     <dependency>
       <groupId>org.springframework.ai</groupId>
       <artifactId>spring-ai-starter-model-openai</artifactId>
     </dependency>
 
-    <!-- RAG support -->
     <dependency>
       <groupId>org.springframework.ai</groupId>
       <artifactId>spring-ai-rag</artifactId>
@@ -58,30 +53,32 @@
       <artifactId>spring-ai-advisors-vector-store</artifactId>
     </dependency>
 
-    <!-- Vector store implementation -->
     <dependency>
       <groupId>org.springframework.ai</groupId>
       <artifactId>spring-ai-vector-store</artifactId>
     </dependency>
 
-    <!-- PDF document reader -->
     <dependency>
       <groupId>org.springframework.ai</groupId>
       <artifactId>spring-ai-pdf-document-reader</artifactId>
     </dependency>
 
-    <!-- PDFBox fallback for manual parsing -->
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>pdfbox</artifactId>
       <version>3.0.0</version>
     </dependency>
 
-    <dependency> <!-- Changed! -->
+    <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <version>42.7.7</version>
       <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
     </dependency>
 
     <dependency>

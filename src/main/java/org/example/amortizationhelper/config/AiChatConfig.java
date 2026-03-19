@@ -1,6 +1,7 @@
 package org.example.amortizationhelper.config;
 
 import lombok.RequiredArgsConstructor;
+import org.example.amortizationhelper.Email.EmailTools;
 import org.example.amortizationhelper.WebSearch.WebSearchTools;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,6 +36,7 @@ public class AiChatConfig {
                                  ResourceLoader resourceLoader,
                                  TravTools travTools,
                                  StartlistaTools startlistaTools,
+                                  EmailTools emailTools,
                                  //RoiTools roiTools,
                                   WebSearchTools webSearchTools) throws Exception {
 
@@ -75,7 +77,7 @@ public class AiChatConfig {
 
         return builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, webSearchTools) //roiTools temp removed 2026-03-14
+                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools) //roiTools temp removed 2026-03-14
                 .build();
     }
 }

@@ -1,5 +1,6 @@
 package org.example.amortizationhelper.Controller;
 
+import org.example.amortizationhelper.Email.EmailTools;
 import org.example.amortizationhelper.Tools.RoiTools;
 import org.example.amortizationhelper.Tools.StartlistaTools;
 import org.example.amortizationhelper.Tools.TravTools;
@@ -42,6 +43,7 @@ public class ChatController {
                           TravTools travTools,
                           StartlistaTools startlistaTools,
                           //RoiTools roiTools,
+                          EmailTools emailTools,
                           WebSearchTools webSearchTools) throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()
@@ -79,7 +81,7 @@ public class ChatController {
 
         this.chatClient = builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, webSearchTools) //roiTools temp removed
+                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools) //roiTools temp removed
                 .build();
     }
 

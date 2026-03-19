@@ -1,5 +1,6 @@
 package org.example.amortizationhelper.Controller;
 
+import org.example.amortizationhelper.Email.EmailTools;
 import org.example.amortizationhelper.Tools.RoiTools;
 import org.example.amortizationhelper.Tools.StartlistaTools;
 import org.example.amortizationhelper.Tools.TravTools;
@@ -60,6 +61,7 @@ public class VoiceController {
                            ResourceLoader resourceLoader,
                            TravTools travTools,
                            WebSearchTools webSearchTools,
+                           EmailTools emailTools,
                            //RoiTools roiTools
                            //ROI TOOLS NOT USED 2026-03-14. UPDATES IN FUTURE
                            StartlistaTools startlistaTools) throws Exception {
@@ -101,7 +103,7 @@ public class VoiceController {
 
         this.chatClient = builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, webSearchTools) //roiTools temp removed
+                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools) //roiTools temp removed
                 .build();
     }
 

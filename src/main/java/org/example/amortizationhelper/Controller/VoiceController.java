@@ -1,36 +1,31 @@
 package org.example.amortizationhelper.Controller;
 
 import org.example.amortizationhelper.Email.EmailTools;
-import org.example.amortizationhelper.Tools.RoiTools;
+import org.example.amortizationhelper.Tools.KopAndelTools;
 import org.example.amortizationhelper.Tools.StartlistaTools;
 import org.example.amortizationhelper.Tools.TravTools;
-
 import org.example.amortizationhelper.WebSearch.WebSearchTools;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
-import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
-import org.springframework.ai.openai.OpenAiAudioTranscriptionOptions;
-
-import org.springframework.ai.openai.OpenAiAudioSpeechModel;
-import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
-import org.springframework.ai.openai.api.OpenAiAudioApi;
-import org.springframework.ai.openai.audio.speech.SpeechPrompt;
-
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.openai.OpenAiAudioSpeechModel;
+import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
+import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
+import org.springframework.ai.openai.OpenAiAudioTranscriptionOptions;
+import org.springframework.ai.openai.api.OpenAiAudioApi;
+import org.springframework.ai.openai.audio.speech.SpeechPrompt;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.template.st.StTemplateRenderer;
 import org.springframework.ai.vectorstore.VectorStore;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
-
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StreamUtils;
@@ -62,6 +57,7 @@ public class VoiceController {
                            TravTools travTools,
                            WebSearchTools webSearchTools,
                            EmailTools emailTools,
+                           KopAndelTools kopAndelTools,
                            //RoiTools roiTools
                            //ROI TOOLS NOT USED 2026-03-14. UPDATES IN FUTURE
                            StartlistaTools startlistaTools) throws Exception {
@@ -103,7 +99,7 @@ public class VoiceController {
 
         this.chatClient = builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools) //roiTools temp removed
+                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools, kopAndelTools) //roiTools temp removed
                 .build();
     }
 
@@ -138,16 +134,19 @@ public class VoiceController {
 
             String answerText = chatClient.prompt()
                     .system("""
-                        Du är i röstläge. Svara kort, utan markdown, på tydlig svenska.
-                        Korta meningar. Max tre punkter i listor. Säg "procent" istället för % om uttalet blir otydligt.
-                    """)
+                                Du är i röstläge. Svara kort, utan markdown, på tydlig svenska.
+                                Korta meningar. Max tre punkter i listor. Säg "procent" istället för % om uttalet blir otydligt.
+                            """)
                     .user(userText == null ? "" : userText)
                     .call()
                     .content();
 
             OpenAiAudioApi.SpeechRequest.Voice voiceEnum;
-            try { voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.valueOf(voiceName.toUpperCase()); }
-            catch (Exception e) { voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.ALLOY; }
+            try {
+                voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.valueOf(voiceName.toUpperCase());
+            } catch (Exception e) {
+                voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.ALLOY;
+            }
 
             var speechOpts = OpenAiAudioSpeechOptions.builder()
                     .responseFormat(OpenAiAudioApi.SpeechRequest.AudioResponseFormat.MP3)
@@ -163,7 +162,10 @@ public class VoiceController {
                     "audioBase64", Base64.getEncoder().encodeToString(mp3)
             ));
         } finally {
-            try { Files.deleteIfExists(tmp); } catch (Exception ignored) {}
+            try {
+                Files.deleteIfExists(tmp);
+            } catch (Exception ignored) {
+            }
         }
     }
 
@@ -173,7 +175,7 @@ public class VoiceController {
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<Map<String, Object>> transcribe(
-                                                                                @RequestPart("file") MultipartFile file) throws IOException {
+            @RequestPart("file") MultipartFile file) throws IOException {
 
         String original = file.getOriginalFilename();
         String ext = (original != null && original.contains("."))
@@ -195,11 +197,12 @@ public class VoiceController {
 
             return ResponseEntity.ok(Map.of("text", text == null ? "" : text));
         } finally {
-            try { Files.deleteIfExists(tmp); } catch (Exception ignored) {}
+            try {
+                Files.deleteIfExists(tmp);
+            } catch (Exception ignored) {
+            }
         }
     }
-
-    public static record TtsRequest(String text, String voice, Float speed) {}
 
     @PostMapping(
             value = "/tts",
@@ -212,8 +215,11 @@ public class VoiceController {
         float speed = req.speed() == null ? 1.0f : req.speed();
 
         OpenAiAudioApi.SpeechRequest.Voice voiceEnum;
-        try { voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.valueOf(voice.toUpperCase()); }
-        catch (Exception e) { voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.ALLOY; }
+        try {
+            voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.valueOf(voice.toUpperCase());
+        } catch (Exception e) {
+            voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.ALLOY;
+        }
 
         var opts = OpenAiAudioSpeechOptions.builder()
                 .responseFormat(OpenAiAudioApi.SpeechRequest.AudioResponseFormat.MP3)
@@ -227,5 +233,8 @@ public class VoiceController {
         return ResponseEntity.ok(Map.of(
                 "audioBase64", Base64.getEncoder().encodeToString(mp3)
         ));
+    }
+
+    public record TtsRequest(String text, String voice, Float speed) {
     }
 }

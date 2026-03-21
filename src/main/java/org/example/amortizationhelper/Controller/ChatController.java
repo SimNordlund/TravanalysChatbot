@@ -1,7 +1,7 @@
 package org.example.amortizationhelper.Controller;
 
 import org.example.amortizationhelper.Email.EmailTools;
-import org.example.amortizationhelper.Tools.RoiTools;
+import org.example.amortizationhelper.Tools.KopAndelTools;
 import org.example.amortizationhelper.Tools.StartlistaTools;
 import org.example.amortizationhelper.Tools.TravTools;
 import org.example.amortizationhelper.WebSearch.WebSearchTools;
@@ -42,6 +42,7 @@ public class ChatController {
                           ResourceLoader resourceLoader,
                           TravTools travTools,
                           StartlistaTools startlistaTools,
+                          KopAndelTools kopAndelTools,
                           //RoiTools roiTools,
                           EmailTools emailTools,
                           WebSearchTools webSearchTools) throws Exception {
@@ -81,7 +82,7 @@ public class ChatController {
 
         this.chatClient = builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools) //roiTools temp removed
+                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools, kopAndelTools) //roiTools temp removed
                 .build();
     }
 

@@ -2,13 +2,10 @@ package org.example.amortizationhelper.config;
 
 import lombok.RequiredArgsConstructor;
 import org.example.amortizationhelper.Email.EmailTools;
+import org.example.amortizationhelper.Tools.KopAndelTools;
+import org.example.amortizationhelper.Tools.StartlistaTools;
+import org.example.amortizationhelper.Tools.TravTools;
 import org.example.amortizationhelper.WebSearch.WebSearchTools;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
-import org.springframework.util.StreamUtils;
-
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -19,10 +16,11 @@ import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugment
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.template.st.StTemplateRenderer;
 import org.springframework.ai.vectorstore.VectorStore;
-
-import org.example.amortizationhelper.Tools.TravTools;
-import org.example.amortizationhelper.Tools.StartlistaTools;
-import org.example.amortizationhelper.Tools.RoiTools;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.util.StreamUtils;
 
 import java.nio.charset.StandardCharsets;
 
@@ -32,12 +30,13 @@ public class AiChatConfig {
 
     @Bean
     public ChatClient chatCliente(ChatClient.Builder builder,
-                                 VectorStore vectorStore,
-                                 ResourceLoader resourceLoader,
-                                 TravTools travTools,
-                                 StartlistaTools startlistaTools,
+                                  VectorStore vectorStore,
+                                  ResourceLoader resourceLoader,
+                                  TravTools travTools,
+                                  StartlistaTools startlistaTools,
                                   EmailTools emailTools,
-                                 //RoiTools roiTools,
+                                  KopAndelTools kopAndelTools,
+                                  //RoiTools roiTools,
                                   WebSearchTools webSearchTools) throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()
@@ -77,7 +76,7 @@ public class AiChatConfig {
 
         return builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools) //roiTools temp removed 2026-03-14
+                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools, kopAndelTools) //roiTools temp removed 2026-03-14
                 .build();
     }
 }

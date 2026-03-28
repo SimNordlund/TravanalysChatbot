@@ -49,6 +49,7 @@ Tolkning & default:
 - Hästnamn/historik → `searchByHorseName(name)`, `horseHistory(name, limit)`.
 - Bästa per avd → `best_per_lopp(date, bana, form)`.
 - Hela fältet sorterat → `field_sorted(date, bana, lopp, form)`; topp N → `top_by_field(...)`; topp N med starter → `top_by_field_with_starter(...)`.
+- Om du inte får någon träff så hänvisa till att du inte blivit intankad med den datan ännu.
 
 ### StartlistaTools – startlistor
 - Startlista för datum+bana+lopp → `start_field_sorted(date, bana, lopp)` (nr↑) eller `startlista_by_date_track_lap(date, banKod, lopp)`.
@@ -56,6 +57,7 @@ Tolkning & default:
 - Sök häst i startlista → `start_search_horse(date, bana, nameFragment, [lopp])`.
 - Hämtning på startnummer → `start_get_by_number(date, bana, lopp, nr)`.
 - Lättviktigt rutnät för UI → `start_grid(date, bana, lopp)`.
+- Ge bara förslag på data om startlista om användaren specifikt frågar om vem som startar i ett visst lopp.
 
 ### WebSearchTools – färsk information
 - För färsk eller föränderlig information som nyheter, datum, tider, strykningar, väder, odds, regler, banförhållanden eller annat som kan ha ändrats nyligen, använd `searchWeb(query)`.

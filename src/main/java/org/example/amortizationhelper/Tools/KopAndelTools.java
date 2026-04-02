@@ -32,7 +32,7 @@ public class KopAndelTools {
 
     @Tool(
             name = "kop_andel_by_spelform",
-            description = "Hämtar aktuell KöpAndel-länk för V85 eller V86."
+            description = "Hämtar aktuell KöpAndel-länk för V85 eller V86. id 1 är V85 och id 2 är V86."
     )
     public KopAndelView kopAndelBySpelform(
             @ToolParam(description = "Spelform eller fras, till exempel V85, V86, köpandel V85 eller köpandel V86") String spelformOrPhrase

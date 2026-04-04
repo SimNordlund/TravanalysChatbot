@@ -12,10 +12,12 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.template.st.StTemplateRenderer;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -45,6 +47,7 @@ public class ChatController {
                           KopAndelTools kopAndelTools,
                           //RoiTools roiTools,
                           EmailTools emailTools,
+                          SyncMcpToolCallbackProvider mcpToolCallbackProvider,
                           WebSearchTools webSearchTools) throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()
@@ -80,9 +83,12 @@ public class ChatController {
                 .build();
         var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).build();
 
+        ToolCallback[] mcpCallbacks = mcpToolCallbackProvider.getToolCallbacks();
+
         this.chatClient = builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
                 .defaultTools(travTools, startlistaTools, webSearchTools, emailTools, kopAndelTools) //roiTools temp removed
+                .defaultToolCallbacks(mcpCallbacks)
                 .build();
     }
 

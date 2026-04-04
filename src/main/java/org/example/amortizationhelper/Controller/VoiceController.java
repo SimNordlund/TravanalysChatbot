@@ -11,6 +11,7 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
@@ -21,6 +22,7 @@ import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.template.st.StTemplateRenderer;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
@@ -58,6 +60,7 @@ public class VoiceController {
                            WebSearchTools webSearchTools,
                            EmailTools emailTools,
                            KopAndelTools kopAndelTools,
+                           SyncMcpToolCallbackProvider mcpToolCallbackProvider, //MCP
                            //RoiTools roiTools
                            //ROI TOOLS NOT USED 2026-03-14. UPDATES IN FUTURE
                            StartlistaTools startlistaTools) throws Exception {
@@ -97,9 +100,12 @@ public class VoiceController {
                 .build();
         var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).build();
 
+        ToolCallback[] mcpCallbacks = mcpToolCallbackProvider.getToolCallbacks();
+
         this.chatClient = builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)
                 .defaultTools(travTools, startlistaTools, webSearchTools, emailTools, kopAndelTools) //roiTools temp removed
+                .defaultToolCallbacks(mcpCallbacks)
                 .build();
     }
 

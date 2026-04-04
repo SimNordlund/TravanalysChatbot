@@ -47,7 +47,7 @@ public class ChatController {
                           KopAndelTools kopAndelTools,
                           //RoiTools roiTools,
                           EmailTools emailTools,
-                          SyncMcpToolCallbackProvider mcpToolCallbackProvider,
+                          SyncMcpToolCallbackProvider mcpToolCallbackProvider, //MCP
                           WebSearchTools webSearchTools) throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()

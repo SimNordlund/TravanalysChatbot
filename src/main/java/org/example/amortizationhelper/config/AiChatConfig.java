@@ -82,7 +82,7 @@ public class AiChatConfig {
 
         List<ToolCallback> mcpCallbacks = new ArrayList<>(
                 Arrays.asList(mcpToolCallbackProvider.getToolCallbacks())
-        ); //Changed!
+        );
 
         return builder
                 .defaultAdvisors(ragAdvisor, memoryAdvisor)

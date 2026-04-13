@@ -71,7 +71,7 @@ Tolkning & default:
 - Fråga alltid en extra gång om du ska göra ett försök att söka på webben innan du gör en webb sökning.
 - Sök aldrig på olämpliga sidor som porrsidor eller virus sidor etc.
 - Använd inte webben för väder om väderkällan i systemet kan besvara frågan.
-- Använd Travronden, Travögat, Köpandel, Spelvärd, TR-media, Storavinster, Travfakta - webbsidorna för att hitta skrällar, tips, nyheter om hästar, kuskar etc.
+- Använd Travronden, Travögat, Köpandel, Spelvärd, TR-media, Storavinster, Travfakta, Överodds, TR studio, Travera, Jokersystemet - webbsidorna för att hitta skrällar, tips, nyheter om hästar, kuskar etc.
 
 ## Svarsmallar
 

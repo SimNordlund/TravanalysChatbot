@@ -1,41 +1,20 @@
 package org.example.amortizationhelper.Controller;
 
-import org.example.amortizationhelper.Email.EmailTools;
-import org.example.amortizationhelper.Tools.KopAndelTools;
-import org.example.amortizationhelper.Tools.StartlistaTools;
-import org.example.amortizationhelper.Tools.TravTools;
-import org.example.amortizationhelper.WebSearch.WebSearchTools;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.MessageWindowChatMemory;
-import org.springframework.ai.chat.prompt.PromptTemplate;
-import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionOptions;
 import org.springframework.ai.openai.api.OpenAiAudioApi;
 import org.springframework.ai.openai.audio.speech.SpeechPrompt;
-import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
-import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
-import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
-import org.springframework.ai.template.st.StTemplateRenderer;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -46,67 +25,20 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class VoiceController {
 
+    private static final float DEFAULT_SPEED = 1.0f;
+    private static final float MIN_SPEED = 0.25f;
+    private static final float MAX_SPEED = 4.0f;
+
     private final OpenAiAudioTranscriptionModel sttModel;
     private final OpenAiAudioSpeechModel ttsModel;
     private final ChatClient chatClient;
 
-    @Autowired
     public VoiceController(OpenAiAudioTranscriptionModel sttModel,
                            OpenAiAudioSpeechModel ttsModel,
-                           ChatClient.Builder builder,
-                           VectorStore vectorStore,
-                           ResourceLoader resourceLoader,
-                           TravTools travTools,
-                           WebSearchTools webSearchTools,
-                           EmailTools emailTools,
-                           KopAndelTools kopAndelTools,
-                           SyncMcpToolCallbackProvider mcpToolCallbackProvider, //MCP
-                           //RoiTools roiTools
-                           //ROI TOOLS NOT USED 2026-03-14. UPDATES IN FUTURE
-                           StartlistaTools startlistaTools) throws Exception {
+                           ChatClient chatClient) {
         this.sttModel = sttModel;
         this.ttsModel = ttsModel;
-
-        var retriever = VectorStoreDocumentRetriever.builder()
-                .vectorStore(vectorStore)
-                .build();
-
-        Resource promptRes = resourceLoader.getResource("classpath:/prompts/travPrompt.st");
-        String templateString;
-        try (var in = promptRes.getInputStream()) {
-            templateString = StreamUtils.copyToString(in, StandardCharsets.UTF_8);
-        }
-
-        PromptTemplate template = PromptTemplate.builder()
-                .renderer(StTemplateRenderer.builder()
-                        .startDelimiterToken('<')
-                        .endDelimiterToken('>')
-                        .build())
-                .template(templateString)
-                .build();
-
-        var queryAugmenter = ContextualQueryAugmenter.builder()
-                .allowEmptyContext(true)
-                .promptTemplate(template)
-                .build();
-
-        var ragAdvisor = RetrievalAugmentationAdvisor.builder()
-                .documentRetriever(retriever)
-                .queryAugmenter(queryAugmenter)
-                .build();
-
-        ChatMemory memory = MessageWindowChatMemory.builder()
-                .maxMessages(15)
-                .build();
-        var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).build();
-
-        ToolCallback[] mcpCallbacks = mcpToolCallbackProvider.getToolCallbacks();
-
-        this.chatClient = builder
-                .defaultAdvisors(ragAdvisor, memoryAdvisor)
-                .defaultTools(travTools, startlistaTools, webSearchTools, emailTools, kopAndelTools) //roiTools temp removed
-                .defaultToolCallbacks(mcpCallbacks)
-                .build();
+        this.chatClient = chatClient;
     }
 
     @PostMapping(
@@ -147,17 +79,14 @@ public class VoiceController {
                     .call()
                     .content();
 
-            OpenAiAudioApi.SpeechRequest.Voice voiceEnum;
-            try {
-                voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.valueOf(voiceName.toUpperCase());
-            } catch (Exception e) {
-                voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.ALLOY;
+            if (answerText == null || answerText.isBlank()) {
+                answerText = "Jag fick inget svar att läsa upp.";
             }
 
             var speechOpts = OpenAiAudioSpeechOptions.builder()
                     .responseFormat(OpenAiAudioApi.SpeechRequest.AudioResponseFormat.MP3)
-                    .voice(voiceEnum)
-                    .speed(speed)
+                    .voice(resolveVoice(voiceName))
+                    .speed(normalizeSpeed(speed))
                     .build();
 
             var speechResp = ttsModel.call(new SpeechPrompt(answerText, speechOpts));
@@ -217,20 +146,11 @@ public class VoiceController {
     )
     public ResponseEntity<Map<String, Object>> tts(@RequestBody TtsRequest req) throws IOException {
         String text = req.text() == null ? "" : req.text();
-        String voice = (req.voice() == null || req.voice().isBlank()) ? "ALLOY" : req.voice();
-        float speed = req.speed() == null ? 1.0f : req.speed();
-
-        OpenAiAudioApi.SpeechRequest.Voice voiceEnum;
-        try {
-            voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.valueOf(voice.toUpperCase());
-        } catch (Exception e) {
-            voiceEnum = OpenAiAudioApi.SpeechRequest.Voice.ALLOY;
-        }
 
         var opts = OpenAiAudioSpeechOptions.builder()
                 .responseFormat(OpenAiAudioApi.SpeechRequest.AudioResponseFormat.MP3)
-                .voice(voiceEnum)
-                .speed(speed)
+                .voice(resolveVoice(req.voice()))
+                .speed(normalizeSpeed(req.speed() == null ? DEFAULT_SPEED : req.speed()))
                 .build();
 
         var speech = ttsModel.call(new SpeechPrompt(text, opts));
@@ -242,5 +162,21 @@ public class VoiceController {
     }
 
     public record TtsRequest(String text, String voice, Float speed) {
+    }
+
+    private OpenAiAudioApi.SpeechRequest.Voice resolveVoice(String voiceName) {
+        String voice = (voiceName == null || voiceName.isBlank()) ? "ALLOY" : voiceName;
+        try {
+            return OpenAiAudioApi.SpeechRequest.Voice.valueOf(voice.toUpperCase());
+        } catch (Exception e) {
+            return OpenAiAudioApi.SpeechRequest.Voice.ALLOY;
+        }
+    }
+
+    private float normalizeSpeed(float speed) {
+        if (Float.isNaN(speed) || Float.isInfinite(speed)) {
+            return DEFAULT_SPEED;
+        }
+        return Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed));
     }
 }

@@ -1,5 +1,6 @@
 package org.example.amortizationhelper.Controller;
 
+import org.example.amortizationhelper.chat.ConversationIdResolver;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
@@ -28,17 +29,21 @@ public class VoiceController {
     private static final float DEFAULT_SPEED = 1.0f;
     private static final float MIN_SPEED = 0.25f;
     private static final float MAX_SPEED = 4.0f;
+    private static final String CHAT_MEMORY_CONVERSATION_ID_KEY = "chat_memory_conversation_id";
 
     private final OpenAiAudioTranscriptionModel sttModel;
     private final OpenAiAudioSpeechModel ttsModel;
     private final ChatClient chatClient;
+    private final ConversationIdResolver conversationIdResolver;
 
     public VoiceController(OpenAiAudioTranscriptionModel sttModel,
                            OpenAiAudioSpeechModel ttsModel,
-                           ChatClient chatClient) {
+                           ChatClient chatClient,
+                           ConversationIdResolver conversationIdResolver) {
         this.sttModel = sttModel;
         this.ttsModel = ttsModel;
         this.chatClient = chatClient;
+        this.conversationIdResolver = conversationIdResolver;
     }
 
     @PostMapping(
@@ -49,7 +54,8 @@ public class VoiceController {
     public ResponseEntity<Map<String, Object>> chatWithAudio(
             @RequestPart("file") MultipartFile file,
             @RequestParam(name = "voice", defaultValue = "ASH") String voiceName,
-            @RequestParam(name = "speed", defaultValue = "1.0") float speed
+            @RequestParam(name = "speed", defaultValue = "1.0") float speed,
+            @RequestParam(name = "conversationId", required = false) String conversationId
     ) throws IOException {
 
         String original = file.getOriginalFilename();
@@ -69,8 +75,10 @@ public class VoiceController {
             var trPrompt = new AudioTranscriptionPrompt(new FileSystemResource(tmp.toFile()), trOpts);
             var trResp = sttModel.call(trPrompt);
             String userText = trResp.getResult().getOutput();
+            String resolvedConversationId = conversationIdResolver.resolve(conversationId);
 
             String answerText = chatClient.prompt()
+                    .advisors(advisor -> advisor.param(CHAT_MEMORY_CONVERSATION_ID_KEY, resolvedConversationId))
                     .system("""
                                 Du är i röstläge. Svara kort, utan markdown, på tydlig svenska.
                                 Korta meningar. Max tre punkter i listor. Säg "procent" istället för % om uttalet blir otydligt.

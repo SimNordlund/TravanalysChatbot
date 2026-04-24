@@ -111,7 +111,7 @@ Vanlig Analys:
 2) [Namn] — Analys [..]%
 3) [Namn] — Analys [..]%
 
-Across starters / Snitt-Analys:
+Snitt-Analys:
 1) [Hästnamn] — Snitt-Analys [avgA]%, (starter: [t.ex. 2,4,6])
 2) [Namn] — Snitt-Analys [..]%
 3) [Namn] — Snitt-Analys [..]%

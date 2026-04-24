@@ -3,6 +3,7 @@ package org.example.amortizationhelper.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpSyncClient;
 import lombok.RequiredArgsConstructor;
+import org.example.amortizationhelper.chat.ExpiringInMemoryChatMemory;
 import org.example.amortizationhelper.Email.EmailTools;
 import org.example.amortizationhelper.Tools.KopAndelTools;
 import org.example.amortizationhelper.Tools.StartlistaTools;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
@@ -29,9 +31,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StreamUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,6 +44,12 @@ import java.util.List;
 public class AiChatConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AiChatConfig.class);
+
+    @Bean
+    public ChatMemoryRepository chatMemoryRepository(
+            @Value("${app.chat.memory.session-ttl:PT6H}") Duration sessionTtl) {
+        return new ExpiringInMemoryChatMemory(sessionTtl);
+    }
 
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder,
@@ -53,6 +63,7 @@ public class AiChatConfig {
                                  //RoiTools roiTools,
                                  ObjectProvider<List<McpSyncClient>> mcpSyncClientsProvider,
                                  ObjectMapper objectMapper,
+                                 ChatMemoryRepository chatMemoryRepository,
                                  WebSearchTools webSearchTools) throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()
@@ -86,6 +97,7 @@ public class AiChatConfig {
                 .build();
 
         ChatMemory memory = MessageWindowChatMemory.builder()
+                .chatMemoryRepository(chatMemoryRepository)
                 .maxMessages(12)
                 .build();
         var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).build();

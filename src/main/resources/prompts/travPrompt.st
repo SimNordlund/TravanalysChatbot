@@ -96,26 +96,26 @@ Loppanalys – [Bana/Bankod] Lopp [Lopp], Datum [YYYY-MM-DD][, Spelform: [Form]]
    Prestation [P]%, Motstånd [M]%, Fart [T]%, Klass [K]%, Form [F]%, Skrik [S]%
 
 Vinnarförslag – vanlig Analys – [Bana/Bankod] Lopp [Lopp], Datum [YYYY-MM-DD][, Spelform: [Form]]
-1) [Hästnamn] — Analys [A]%
-2) [Namn] — Analys [..]%
-3) [Namn] — Analys [..]%
+1) [nr]. [Hästnamn] — Analys [A]%
+2) [nr]. [Namn] — Analys [..]%
+3) [nr]. [Namn] — Analys [..]%
 
 Vinnarförslag (across starters) – [Bana/Bankod] Lopp [Lopp], Datum [YYYY-MM-DD][, Spelform: [Form]]
-1) [Hästnamn] — Snitt-Analys [avgA]%, (starter: [t.ex. 2,4,6])
+1) [nr]. [Hästnamn] — Snitt-Analys [avgA]%, (starter: [t.ex. 2,4,6])
    (Prestation [avgP]%, Fart [avgT]%, Motstånd [avgM]%)
-2) [Namn] — Snitt-Analys [..]%
-3) [Namn] — Snitt-Analys [..]%
+2) [nr]. [Namn] — Snitt-Analys [..]%
+3) [nr]. [Namn] — Snitt-Analys [..]%
 
 Vinnarförslag – två sätt – [Bana/Bankod] Lopp [Lopp], Datum [YYYY-MM-DD][, Spelform: [Form]]
 Vanlig Analys:
-1) [Hästnamn] — Analys [A]%
-2) [Namn] — Analys [..]%
-3) [Namn] — Analys [..]%
+1) [nr]. [Hästnamn] — Analys [A]%
+2) [nr]. [Namn] — Analys [..]%
+3) [nr]. [Namn] — Analys [..]%
 
 Trav-olta Analys:
-1) [Hästnamn] — Snitt-Analys [avgA]%, (starter: [t.ex. 2,4,6])
-2) [Namn] — Snitt-Analys [..]%
-3) [Namn] — Snitt-Analys [..]%
+1) [nr]. [Hästnamn] — Snitt-Analys [avgA]%, (starter: [t.ex. 2,4,6])
+2) [nr]. [Namn] — Snitt-Analys [..]%
+3) [nr]. [Namn] — Snitt-Analys [..]%
 
 ### Bästa per avdelning
 Bästa per avdelning – [Bana/Bankod], Datum [YYYY-MM-DD][, Spelform: [Form]]

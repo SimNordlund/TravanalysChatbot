@@ -634,12 +634,12 @@ public class TravTools {
 
     public static class LoppTopN {
         public String lap;
-        public List<WinnerSuggestion> top;
-        public LoppTopN(String lap, List<WinnerSuggestion> top) { this.lap = lap; this.top = top; }
+        public List<HorseResult> top;
+        public LoppTopN(String lap, List<HorseResult> top) { this.lap = lap; this.top = top; }
     }
 
     @Tool(name = "top_by_day_track_form",
-            description = "Topp N per lopp/avd för ett datum + bana + spelform. Prioriterar starter=0 om finns i avdelningen, annars väger den ihop starter 1-8.")
+            description = "Topp N per lopp/avd för ett datum + bana + spelform, sorterat på vanlig Analys. Prioriterar starter=0 om den finns.")
     public List<LoppTopN> topByDayTrackForm(String dateOrPhrase, String banKodOrTrack, String spelFormOrPhrase, Integer topN) {
 
         Integer startDate = parseDateFlexible(dateOrPhrase);
@@ -668,7 +668,7 @@ public class TravTools {
                 .sorted(Comparator.comparingInt(TravTools::lapKey))
                 .map(lap -> new LoppTopN(
                         lap,
-                        pickWinnerAcrossStarters(String.valueOf(startDate), banKod, lap, formForCalls, finalTopN)
+                        topByField(String.valueOf(startDate), banKod, lap, formForCalls, finalTopN)
                 ))
                 .toList();
     }
@@ -772,13 +772,41 @@ public class TravTools {
 
         if (count == null || count <= 0) count = 2;
 
-        List<LoppTopN> perLap = topByDayTrackForm(dateOrPhrase, banKodOrTrack, spelFormOrPhrase, 2);
+        Integer startDate = parseDateFlexible(dateOrPhrase);
+        String banKod = resolveBanKodFlexible(banKodOrTrack);
+        String form = parseSpelFormFlexible(spelFormOrPhrase);
+        if (startDate == null || banKod == null) return List.of();
 
-        return perLap.stream()
-                .map(x -> {
-                    if (x.top == null || x.top.isEmpty()) return null;
-                    WinnerSuggestion first = x.top.get(0);
-                    WinnerSuggestion second = (x.top.size() > 1) ? x.top.get(1) : null;
+        boolean aggregator = isAggregatorSpelForm(form);
+        String effectiveForm = (form == null ? "vinnare" : form);
+
+        List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, effectiveForm);
+        if (laps.isEmpty() || aggregator) {
+            effectiveForm = "vinnare";
+            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, "vinnare");
+        }
+        if (laps.isEmpty()) {
+            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, null);
+        }
+
+        final String formForCalls = effectiveForm;
+        final Integer resolvedStartDate = startDate;
+        final String resolvedBanKod = banKod;
+
+        return laps.stream()
+                .sorted(Comparator.comparingInt(TravTools::lapKey))
+                .map(lap -> {
+                    List<WinnerSuggestion> top2 = pickWinnerAcrossStarters(
+                            String.valueOf(resolvedStartDate),
+                            resolvedBanKod,
+                            lap,
+                            formForCalls,
+                            2
+                    );
+                    if (top2 == null || top2.isEmpty()) return null;
+
+                    WinnerSuggestion first = top2.get(0);
+                    WinnerSuggestion second = (top2.size() > 1) ? top2.get(1) : null;
                     double edge = (second == null) ? 0.0 : (first.score - second.score);
                     double spikScore = first.score + edge;
                     return new WinnerSuggestion(

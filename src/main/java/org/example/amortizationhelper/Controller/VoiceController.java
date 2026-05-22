@@ -53,7 +53,7 @@ public class VoiceController {
     )
     public ResponseEntity<Map<String, Object>> chatWithAudio(
             @RequestPart("file") MultipartFile file,
-            @RequestParam(name = "voice", defaultValue = "ASH") String voiceName,
+            @RequestParam(name = "voice", defaultValue = "SAGE") String voiceName,
             @RequestParam(name = "speed", defaultValue = "1.0") float speed,
             @RequestParam(name = "conversationId", required = false) String conversationId
     ) throws IOException {
@@ -173,11 +173,11 @@ public class VoiceController {
     }
 
     private OpenAiAudioApi.SpeechRequest.Voice resolveVoice(String voiceName) {
-        String voice = (voiceName == null || voiceName.isBlank()) ? "ALLOY" : voiceName;
+        String voice = (voiceName == null || voiceName.isBlank()) ? "SAGE" : voiceName;
         try {
             return OpenAiAudioApi.SpeechRequest.Voice.valueOf(voice.toUpperCase());
         } catch (Exception e) {
-            return OpenAiAudioApi.SpeechRequest.Voice.ALLOY;
+            return OpenAiAudioApi.SpeechRequest.Voice.SAGE;
         }
     }
 

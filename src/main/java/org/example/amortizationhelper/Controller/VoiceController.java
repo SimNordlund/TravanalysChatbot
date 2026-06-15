@@ -89,7 +89,7 @@ public class VoiceController {
                 answerText = "Jag fick inget svar att läsa upp.";
             }
 
-            byte[] mp3 = ttsService.synthesizeMp3(answerText, voiceName, normalizeSpeed(speed));
+            byte[] mp3 = ttsService.synthesizeMp3(cleanForSpeech(answerText), voiceName, normalizeSpeed(speed));
 
             return ResponseEntity.ok(Map.of(
                     "text", answerText,
@@ -147,7 +147,7 @@ public class VoiceController {
         String text = req.text() == null ? "" : req.text();
 
         byte[] mp3 = ttsService.synthesizeMp3(
-                text,
+                cleanForSpeech(text),
                 req.voice(),
                 normalizeSpeed(req.speed() == null ? DEFAULT_SPEED : req.speed())
         );
@@ -158,6 +158,56 @@ public class VoiceController {
     }
 
     public record TtsRequest(String text, String voice, Float speed) {
+    }
+
+    private static String cleanForSpeech(String text) {
+        if (text == null) return "";
+        return text
+                .replaceAll("[\\p{So}\\p{Cn}\\uFE0F\\u200D]", "")
+                .replace("\r\n", "\n")
+                .replace('\r', '\n')
+                .lines()
+                .map(String::trim)
+                .filter(line -> !line.isBlank())
+                .map(VoiceController::cleanLineForSpeech)
+                .reduce((left, right) -> left + "\n" + right)
+                .orElse("");
+    }
+
+    private static String cleanLineForSpeech(String line) {
+        String clean = line.replaceAll("\\s+", " ").trim();
+        java.util.regex.Matcher numberedLine = java.util.regex.Pattern
+                .compile("^(\\d{1,2})[.)]\\s+(.+)$")
+                .matcher(clean);
+
+        if (numberedLine.find()) {
+            return ensureSentence("Punkt " + speakableNumber(numberedLine.group(1)) + ": " + numberedLine.group(2));
+        }
+
+        clean = clean.replaceAll("^[\\-•*]\\s+", "Punkt: ");
+        return ensureSentence(clean);
+    }
+
+    private static String ensureSentence(String text) {
+        if (text == null || text.isBlank()) return "";
+        String clean = text.trim();
+        return clean.matches(".*[.!?:]$") ? clean : clean + ".";
+    }
+
+    private static String speakableNumber(String number) {
+        return switch (number) {
+            case "1" -> "ett";
+            case "2" -> "två";
+            case "3" -> "tre";
+            case "4" -> "fyra";
+            case "5" -> "fem";
+            case "6" -> "sex";
+            case "7" -> "sju";
+            case "8" -> "åtta";
+            case "9" -> "nio";
+            case "10" -> "tio";
+            default -> number;
+        };
     }
 
     private float normalizeSpeed(float speed) {

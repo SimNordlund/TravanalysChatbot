@@ -1,14 +1,12 @@
 package org.example.amortizationhelper.Controller;
 
 import org.example.amortizationhelper.chat.ConversationIdResolver;
+import org.example.amortizationhelper.voice.AzureSpeechTtsService;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.openai.OpenAiAudioSpeechModel;
-import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionOptions;
 import org.springframework.ai.openai.api.OpenAiAudioApi;
-import org.springframework.ai.openai.audio.speech.SpeechPrompt;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,16 +30,16 @@ public class VoiceController {
     private static final String CHAT_MEMORY_CONVERSATION_ID_KEY = "chat_memory_conversation_id";
 
     private final OpenAiAudioTranscriptionModel sttModel;
-    private final OpenAiAudioSpeechModel ttsModel;
+    private final AzureSpeechTtsService ttsService;
     private final ChatClient chatClient;
     private final ConversationIdResolver conversationIdResolver;
 
     public VoiceController(OpenAiAudioTranscriptionModel sttModel,
-                           OpenAiAudioSpeechModel ttsModel,
+                           AzureSpeechTtsService ttsService,
                            ChatClient chatClient,
                            ConversationIdResolver conversationIdResolver) {
         this.sttModel = sttModel;
-        this.ttsModel = ttsModel;
+        this.ttsService = ttsService;
         this.chatClient = chatClient;
         this.conversationIdResolver = conversationIdResolver;
     }
@@ -53,7 +51,7 @@ public class VoiceController {
     )
     public ResponseEntity<Map<String, Object>> chatWithAudio(
             @RequestPart("file") MultipartFile file,
-            @RequestParam(name = "voice", defaultValue = "SAGE") String voiceName,
+            @RequestParam(name = "voice", defaultValue = "sv-SE-MattiasNeural") String voiceName,
             @RequestParam(name = "speed", defaultValue = "1.0") float speed,
             @RequestParam(name = "conversationId", required = false) String conversationId
     ) throws IOException {
@@ -91,14 +89,7 @@ public class VoiceController {
                 answerText = "Jag fick inget svar att läsa upp.";
             }
 
-            var speechOpts = OpenAiAudioSpeechOptions.builder()
-                    .responseFormat(OpenAiAudioApi.SpeechRequest.AudioResponseFormat.MP3)
-                    .voice(resolveVoice(voiceName))
-                    .speed(normalizeSpeed(speed))
-                    .build();
-
-            var speechResp = ttsModel.call(new SpeechPrompt(answerText, speechOpts));
-            byte[] mp3 = speechResp.getResult().getOutput();
+            byte[] mp3 = ttsService.synthesizeMp3(answerText, voiceName, normalizeSpeed(speed));
 
             return ResponseEntity.ok(Map.of(
                     "text", answerText,
@@ -155,14 +146,11 @@ public class VoiceController {
     public ResponseEntity<Map<String, Object>> tts(@RequestBody TtsRequest req) throws IOException {
         String text = req.text() == null ? "" : req.text();
 
-        var opts = OpenAiAudioSpeechOptions.builder()
-                .responseFormat(OpenAiAudioApi.SpeechRequest.AudioResponseFormat.MP3)
-                .voice(resolveVoice(req.voice()))
-                .speed(normalizeSpeed(req.speed() == null ? DEFAULT_SPEED : req.speed()))
-                .build();
-
-        var speech = ttsModel.call(new SpeechPrompt(text, opts));
-        byte[] mp3 = speech.getResult().getOutput();
+        byte[] mp3 = ttsService.synthesizeMp3(
+                text,
+                req.voice(),
+                normalizeSpeed(req.speed() == null ? DEFAULT_SPEED : req.speed())
+        );
 
         return ResponseEntity.ok(Map.of(
                 "audioBase64", Base64.getEncoder().encodeToString(mp3)
@@ -170,15 +158,6 @@ public class VoiceController {
     }
 
     public record TtsRequest(String text, String voice, Float speed) {
-    }
-
-    private OpenAiAudioApi.SpeechRequest.Voice resolveVoice(String voiceName) {
-        String voice = (voiceName == null || voiceName.isBlank()) ? "SAGE" : voiceName;
-        try {
-            return OpenAiAudioApi.SpeechRequest.Voice.valueOf(voice.toUpperCase());
-        } catch (Exception e) {
-            return OpenAiAudioApi.SpeechRequest.Voice.SAGE;
-        }
     }
 
     private float normalizeSpeed(float speed) {

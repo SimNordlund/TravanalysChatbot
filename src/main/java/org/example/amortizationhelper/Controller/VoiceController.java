@@ -184,7 +184,7 @@ public class VoiceController {
             return ensureSentence("Punkt " + speakableNumber(numberedLine.group(1)) + ": " + numberedLine.group(2));
         }
 
-        clean = clean.replaceAll("^[\\-•*]\\s+", "Punkt: ");
+        clean = clean.replaceAll("^[\\-•*]\\s+", "");
         return ensureSentence(clean);
     }
 

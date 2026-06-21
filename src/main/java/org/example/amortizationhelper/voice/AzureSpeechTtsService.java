@@ -1,18 +1,15 @@
 package org.example.amortizationhelper.voice;
 
-import com.microsoft.cognitiveservices.speech.CancellationReason;
-import com.microsoft.cognitiveservices.speech.ResultReason;
-import com.microsoft.cognitiveservices.speech.SpeechConfig;
-import com.microsoft.cognitiveservices.speech.SpeechSynthesisCancellationDetails;
-import com.microsoft.cognitiveservices.speech.SpeechSynthesisOutputFormat;
-import com.microsoft.cognitiveservices.speech.SpeechSynthesisResult;
-import com.microsoft.cognitiveservices.speech.SpeechSynthesizer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.concurrent.ExecutionException;
 
 @Service
 public class AzureSpeechTtsService {
@@ -22,15 +19,19 @@ public class AzureSpeechTtsService {
     private final String speechKey;
     private final String speechRegion;
     private final String defaultVoice;
+    private final RestClient restClient;
 
     public AzureSpeechTtsService(
-            @Value("${app.azure.speech.key}") String speechKey,
-            @Value("${app.azure.speech.region}") String speechRegion,
-            @Value("${app.azure.speech.voice}") String defaultVoice
+            @Value("${app.azure.speech.key:}") String speechKey,
+            @Value("${app.azure.speech.region:westeurope}") String speechRegion,
+            @Value("${app.azure.speech.voice:sv-SE-MattiasNeural}") String defaultVoice
     ) {
         this.speechKey = speechKey;
         this.speechRegion = speechRegion;
         this.defaultVoice = defaultVoice;
+        this.restClient = RestClient.builder()
+                .baseUrl("https://" + speechRegion + ".tts.speech.microsoft.com")
+                .build();
     }
 
     public byte[] synthesizeMp3(String text, String requestedVoice, float speed) throws IOException {
@@ -45,49 +46,33 @@ public class AzureSpeechTtsService {
         }
 
         String voice = resolveVoice(requestedVoice);
+        String ssml = buildSsml(text, voice, speed);
 
-        try (SpeechConfig speechConfig = SpeechConfig.fromSubscription(speechKey, speechRegion)) {
-            speechConfig.setSpeechSynthesisLanguage(SWEDISH_LOCALE);
-            speechConfig.setSpeechSynthesisVoiceName(voice);
-            speechConfig.setSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3);
+        try {
+            byte[] audio = restClient.post()
+                    .uri("/cognitiveservices/v1")
+                    .header("Ocp-Apim-Subscription-Key", speechKey)
+                    .header("X-Microsoft-OutputFormat", "audio-24khz-160kbitrate-mono-mp3")
+                    .header("User-Agent", "Travolta")
+                    .contentType(new MediaType("application", "ssml+xml", StandardCharsets.UTF_8))
+                    .accept(MediaType.valueOf("audio/mpeg"))
+                    .body(ssml.getBytes(StandardCharsets.UTF_8))
+                    .retrieve()
+                    .body(byte[].class);
 
-            try (SpeechSynthesizer synthesizer = new SpeechSynthesizer(speechConfig, null)) {
-                SpeechSynthesisResult result = synthesize(synthesizer, text, voice, speed);
-                try {
-                    if (result.getReason() == ResultReason.SynthesizingAudioCompleted) {
-                        return result.getAudioData();
-                    }
-
-                    if (result.getReason() == ResultReason.Canceled) {
-                        SpeechSynthesisCancellationDetails details = SpeechSynthesisCancellationDetails.fromResult(result);
-                        String errorDetails = details.getErrorDetails();
-                        String suffix = (errorDetails == null || errorDetails.isBlank()) ? "" : ": " + errorDetails;
-                        if (details.getReason() == CancellationReason.Error) {
-                            throw new IOException("Azure Speech synthesis failed" + suffix);
-                        }
-                        throw new IOException("Azure Speech synthesis canceled: " + details.getReason() + suffix);
-                    }
-
-                    throw new IOException("Azure Speech synthesis failed with reason: " + result.getReason());
-                } finally {
-                    result.close();
-                }
+            if (audio == null || audio.length == 0) {
+                throw new IOException("Azure Speech returned empty audio.");
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Azure Speech synthesis was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new IOException("Azure Speech synthesis failed.", e);
+            return audio;
+        } catch (RestClientResponseException e) {
+            throw new IOException(
+                    "Azure Speech request failed with HTTP " + e.getStatusCode().value()
+                            + ": " + e.getResponseBodyAsString(),
+                    e
+            );
+        } catch (RestClientException e) {
+            throw new IOException("Azure Speech request failed.", e);
         }
-    }
-
-    private SpeechSynthesisResult synthesize(SpeechSynthesizer synthesizer, String text, String voice, float speed)
-            throws ExecutionException, InterruptedException {
-        if (Math.abs(speed - 1.0f) < 0.01f) {
-            return synthesizer.SpeakTextAsync(text).get();
-        }
-
-        return synthesizer.SpeakSsmlAsync(buildSsml(text, voice, speed)).get();
     }
 
     private String resolveVoice(String requestedVoice) {
@@ -99,12 +84,12 @@ public class AzureSpeechTtsService {
 
     private static String buildSsml(String text, String voice, float speed) {
         return """
-                <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="sv-SE">
+                <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="%s">
                     <voice name="%s">
                         <prosody rate="%s">%s</prosody>
                     </voice>
                 </speak>
-                """.formatted(escapeXml(voice), speedToRate(speed), escapeXml(text));
+                """.formatted(SWEDISH_LOCALE, escapeXml(voice), speedToRate(speed), escapeXml(text));
     }
 
     private static String speedToRate(float speed) {

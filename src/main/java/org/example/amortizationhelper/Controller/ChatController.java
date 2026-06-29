@@ -39,7 +39,7 @@ public class ChatController {
         String clean = message.replaceAll("\\p{C}", "");
         String resolvedConversationId = conversationIdResolver.resolve(conversationId);
         String requestId = UUID.randomUUID().toString();
-        log.info("[{}] User message (conversationId={}): {}", requestId, resolvedConversationId, clean);
+        log.info("[{}] 🤑 MESSAGE FROM USER ID: (conversationId={}): {}", requestId, resolvedConversationId, clean);
         StringBuilder responseBuf = new StringBuilder();
 
         Flux<String> contentStream = chatClient.prompt()

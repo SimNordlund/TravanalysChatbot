@@ -39,7 +39,7 @@ public class ChatController {
         String clean = message.replaceAll("\\p{C}", "");
         String resolvedConversationId = conversationIdResolver.resolve(conversationId);
         String requestId = UUID.randomUUID().toString();
-        log.info("[{}] 🤑 MESSAGE FROM USER ID: (conversationId={}): {}", requestId, resolvedConversationId, clean);
+        log.info("[{}] 🤑 MESSAGE FROM USER (conversationId={}): {}", requestId, resolvedConversationId, clean);
         StringBuilder responseBuf = new StringBuilder();
 
         Flux<String> contentStream = chatClient.prompt()
@@ -56,7 +56,7 @@ public class ChatController {
                     writer.flush();
                 }
 
-                log.info("[{}] Assistant response (conversationId={}): {}",
+                log.info("[{}] Assistant 😎 response (conversationId={}): {}",
                         requestId, resolvedConversationId, responseBuf);
             } catch (Exception e) {
                 log.error("[{}] Chat stream error", requestId, e);

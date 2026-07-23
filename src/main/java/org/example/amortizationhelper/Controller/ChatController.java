@@ -23,6 +23,8 @@ public class ChatController {
 
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
     private static final String CHAT_MEMORY_CONVERSATION_ID_KEY = "chat_memory_conversation_id";
+    private static final String STREAM_ERROR_MESSAGE =
+            "Trav-olta har problem med hjärnkontoret och hoppas piggna till snart igen.";
 
     private final ChatClient chatClient;
     private final ConversationIdResolver conversationIdResolver;
@@ -50,17 +52,24 @@ public class ChatController {
 
         StreamingResponseBody responseBody = outputStream -> {
             try (OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {
-                for (String chunk : contentStream.toIterable()) {
-                    responseBuf.append(chunk);
-                    writer.write(chunk);
+                try {
+                    for (String chunk : contentStream.toIterable()) {
+                        responseBuf.append(chunk);
+                        writer.write(chunk);
+                        writer.flush();
+                    }
+
+                    log.info("[{}] Assistant 😎 response (conversationId={}): {}",
+                            requestId, resolvedConversationId, responseBuf);
+                } catch (Exception e) {
+                    log.error("[{}] Chat stream error", requestId, e);
+                    if (!responseBuf.isEmpty()) {
+                        writer.write(System.lineSeparator());
+                        writer.write(System.lineSeparator());
+                    }
+                    writer.write(STREAM_ERROR_MESSAGE);
                     writer.flush();
                 }
-
-                log.info("[{}] Assistant 😎 response (conversationId={}): {}",
-                        requestId, resolvedConversationId, responseBuf);
-            } catch (Exception e) {
-                log.error("[{}] Chat stream error", requestId, e);
-                throw e;
             }
         };
 

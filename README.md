@@ -24,7 +24,7 @@ Modern, strömlinjeformad backend byggd med Spring Boot, OpenAI, och RAG (Retrie
 Teknisk översikt
 Spring Boot backend (Java 21+)
 
-OpenAI GPT-4 Turbo för chatt och AI-resonemang
+OpenAI GPT-6 Luna för chatt och AI-resonemang
 
 SimpleVectorStore för lokal hantering av embeddings (PDF-data)
 

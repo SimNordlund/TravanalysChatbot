@@ -21,7 +21,7 @@ public class OpenAiWebSearchService {
 
     public OpenAiWebSearchService(
                                    @Value("${spring.ai.openai.api-key}") String apiKey,
-                                   @Value("${app.openai.web-search.model:gpt-5.4}") String model,
+                                   @Value("${app.openai.web-search.model:gpt-6-luna}") String model,
                                    ObjectMapper objectMapper) {
 
         this.objectMapper = objectMapper;

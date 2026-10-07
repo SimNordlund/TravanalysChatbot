@@ -1,9 +1,14 @@
 package org.example.amortizationhelper.voice;
 
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Keeps the displayed answer intact while making its spoken version easier to follow. */
 public final class SwedishSpeechText {
+
+    private static final Pattern RANKED_HORSE = Pattern.compile(
+            "^\\d{1,2}[.)]\\s+(.+?)\\s+\\(([1-9]\\d?)\\)(\\s*(?:[–—-].*|[.!?])?)$");
 
     private SwedishSpeechText() {
     }
@@ -51,10 +56,16 @@ public final class SwedishSpeechText {
         if (clean.matches("[|:\\-\\s]+")) {
             return "";
         }
-        clean = clean.replaceAll("^#{1,6}\\s*|^>\\s*|^[\\-•–]\\s+", "")
-                // A leading number may be a horse's start number, not an enumerated talking point.
-                .replaceAll("^(\\d{1,2})[.)]\\s+", "$1, ")
-                .replaceAll("^\\|\\s*|\\s*\\|$", "")
+        clean = clean.replaceAll("^#{1,6}\\s*|^>\\s*|^[\\-•–]\\s+", "");
+        Matcher horse = RANKED_HORSE.matcher(clean);
+        if (horse.matches()) {
+            // In "1. Horse (7)" only the parenthesized number identifies the horse.
+            clean = horse.group(1) + ", nummer " + horse.group(2) + horse.group(3);
+        } else {
+            // Preserve numbers in other lists; they may carry information of their own.
+            clean = clean.replaceAll("^(\\d{1,2})[.)]\\s+", "$1, ");
+        }
+        clean = clean.replaceAll("^\\|\\s*|\\s*\\|$", "")
                 .replaceAll("\\s*\\|\\s*", ", ")
                 .replaceAll("\\s+", " ")
                 .trim();

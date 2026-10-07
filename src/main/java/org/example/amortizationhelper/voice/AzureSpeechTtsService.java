@@ -2,6 +2,7 @@ package org.example.amortizationhelper.voice;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -15,6 +16,7 @@ import java.util.Locale;
 public class AzureSpeechTtsService {
 
     private static final String SWEDISH_LOCALE = "sv-SE";
+    private static final String FALLBACK_VOICE = "sv-SE-MattiasNeural";
 
     private final String speechKey;
     private final String speechRegion;
@@ -29,8 +31,12 @@ public class AzureSpeechTtsService {
         this.speechKey = speechKey;
         this.speechRegion = speechRegion;
         this.defaultVoice = defaultVoice;
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(10_000);
+        requestFactory.setReadTimeout(45_000);
         this.restClient = RestClient.builder()
                 .baseUrl("https://" + speechRegion + ".tts.speech.microsoft.com")
+                .requestFactory(requestFactory)
                 .build();
     }
 
@@ -67,7 +73,7 @@ public class AzureSpeechTtsService {
         } catch (RestClientResponseException e) {
             throw new IOException(
                     "Azure Speech request failed with HTTP " + e.getStatusCode().value()
-                            + ": " + e.getResponseBodyAsString(),
+                            + ".",
                     e
             );
         } catch (RestClientException e) {
@@ -76,10 +82,22 @@ public class AzureSpeechTtsService {
     }
 
     private String resolveVoice(String requestedVoice) {
-        if (requestedVoice != null && requestedVoice.toLowerCase(Locale.ROOT).startsWith("sv-se-")) {
-            return requestedVoice;
+        String voice = validSwedishVoice(requestedVoice);
+        if (voice != null) {
+            return voice;
         }
-        return defaultVoice;
+        String configuredVoice = validSwedishVoice(defaultVoice);
+        return configuredVoice != null ? configuredVoice : FALLBACK_VOICE;
+    }
+
+    private static String validSwedishVoice(String voice) {
+        if (voice == null) return null;
+        String trimmed = voice.trim();
+        if (trimmed.toLowerCase(Locale.ROOT).startsWith("sv-se-")
+                && trimmed.substring(6).matches("[A-Za-z][A-Za-z0-9]*Neural")) {
+            return "sv-SE-" + trimmed.substring(6);
+        }
+        return null;
     }
 
     private static String buildSsml(String text, String voice, float speed) {
@@ -89,10 +107,14 @@ public class AzureSpeechTtsService {
                         <prosody rate="%s">%s</prosody>
                     </voice>
                 </speak>
-                """.formatted(SWEDISH_LOCALE, escapeXml(voice), speedToRate(speed), escapeXml(text));
+                """.formatted(SWEDISH_LOCALE, escapeXml(voice), speedToRate(speed),
+                escapeXml(text).replace("\n", "<break time=\"220ms\"/>"));
     }
 
     private static String speedToRate(float speed) {
+        if (!Float.isFinite(speed)) {
+            speed = 1.0f;
+        }
         int percent = Math.round((speed - 1.0f) * 100);
         percent = Math.max(-50, Math.min(100, percent));
         return percent >= 0 ? "+" + percent + "%" : percent + "%";
@@ -100,7 +122,14 @@ public class AzureSpeechTtsService {
 
     private static String escapeXml(String value) {
         if (value == null) return "";
-        return value
+        StringBuilder validXml = new StringBuilder();
+        value.codePoints()
+                .filter(codePoint -> codePoint == 0x9 || codePoint == 0xA || codePoint == 0xD
+                        || codePoint >= 0x20 && codePoint <= 0xD7FF
+                        || codePoint >= 0xE000 && codePoint <= 0xFFFD
+                        || codePoint >= 0x10000 && codePoint <= 0x10FFFF)
+                .forEach(validXml::appendCodePoint);
+        return validXml.toString()
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")

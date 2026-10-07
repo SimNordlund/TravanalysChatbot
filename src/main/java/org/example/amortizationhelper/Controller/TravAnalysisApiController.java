@@ -101,8 +101,12 @@ public class TravAnalysisApiController {
 
     private static Integer parsePercent(String value) {
         if (value == null || value.isBlank()) return null;
+        String normalized = value.trim().replace("%", "").trim().replace(',', '.');
+        if (!normalized.matches("\\d+(?:\\.\\d+)?")) return null;
         try {
-            return Integer.parseInt(value.trim());
+            double percent = Double.parseDouble(normalized);
+            // Keep the existing integer API contract; sorting uses the original decimal value.
+            return Double.isFinite(percent) && percent <= 100 ? (int) Math.round(percent) : null;
         } catch (NumberFormatException ignored) {
             return null;
         }

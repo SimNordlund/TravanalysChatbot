@@ -2,51 +2,25 @@ package org.example.amortizationhelper.Tools;
 
 import lombok.AllArgsConstructor;
 import org.example.amortizationhelper.Entity.HorseResult;
+import org.example.amortizationhelper.Entity.Roi;
 import org.example.amortizationhelper.repo.HorseResultRepo;
+import org.example.amortizationhelper.repo.RoiRepo;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
-import java.text.Normalizer;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.function.Function;
 
 @Component
 @AllArgsConstructor
 public class TravTools {
 
-    private static final Map<String, String> tackToBanKod = Map.ofEntries(
-            Map.entry("Ar", "Arvika"), Map.entry("Ax", "Axevalla"),
-            Map.entry("B", "Bergsåker"), Map.entry("Bo", "Boden"),
-            Map.entry("Bs", "Bollnäs"), Map.entry("D", "Dannero"),
-            Map.entry("Dj", "Dala Järna"), Map.entry("E", "Eskilstuna"),
-            Map.entry("J", "Jägersro"), Map.entry("F", "Färjestad"),
-            Map.entry("G", "Gävle"), Map.entry("Gt", "Göteborg trav"),
-            Map.entry("H", "Hagmyren"), Map.entry("Hd", "Halmstad"),
-            Map.entry("Hg", "Hoting"), Map.entry("Kh", "Karlshamn"),
-            Map.entry("Kr", "Kalmar"), Map.entry("L", "Lindesberg"),
-            Map.entry("Ly", "Lycksele"), Map.entry("Mp", "Mantorp"),
-            Map.entry("Ov", "Oviken"), Map.entry("Ro", "Romme"),
-            Map.entry("Rä", "Rättvik"), Map.entry("S", "Solvalla"),
-            Map.entry("Sk", "Skellefteå"), Map.entry("Sä", "Solänget"),
-            Map.entry("Ti", "Tingsryd"), Map.entry("Tt", "Täby Trav"),
-            Map.entry("U", "Umåker"), Map.entry("Vd", "Vemdalen"),
-            Map.entry("Vg", "Vaggeryd"), Map.entry("Vi", "Visby"),
-            Map.entry("Å", "Åby"), Map.entry("Åm", "Åmål"),
-            Map.entry("År", "Årjäng"), Map.entry("Ö", "Örebro"),
-            Map.entry("Ös", "Östersund")
-    );
-
-    private static final Map<String, Integer> svMonth = Map.ofEntries(
-            Map.entry("januari", 1), Map.entry("februari", 2), Map.entry("mars", 3), Map.entry("april", 4),
-            Map.entry("maj", 5), Map.entry("juni", 6), Map.entry("juli", 7), Map.entry("augusti", 8),
-            Map.entry("september", 9), Map.entry("oktober", 10), Map.entry("november", 11), Map.entry("december", 12)
-    );
-
     private final HorseResultRepo horseResultRepo;
+    private final RoiRepo roiRepo;
 
     public static class DaySnapshot {
         public Integer startDate;
@@ -81,14 +55,13 @@ public class TravTools {
 
     @Tool(
             name = "snapshot_by_date_form_all_tracks",
-            description = "Returnerar alla banor för ett datum, samt alla lopp/avd och vilka starter (0-8) som finns per lopp, filtrerat på spelform (med fallback till vinnare/utan spelform)."
+            description = "Returnerar banor med data för exakt valt datum och spelform, deras faktiska loppnummer och tillgängliga analysfönster (starter). Ingen avdelningsmappning."
     )
     public DaySnapshot snapshotByDateFormAllTracks(String dateOrPhrase, String spelFormOrPhrase) {
         Integer startDate = parseDateFlexible(dateOrPhrase);
         if (startDate == null) return new DaySnapshot(null, null, List.of());
 
         String parsedForm = parseSpelFormFlexible(spelFormOrPhrase);
-        if (isAggregatorSpelForm(parsedForm)) parsedForm = "vinnare";
         String requestedForm = (parsedForm == null ? "vinnare" : parsedForm);
 
         List<String> tracks = horseResultRepo.distinctBanKodByDate(startDate);
@@ -98,21 +71,14 @@ public class TravTools {
             String formUsed = requestedForm;
             List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, formUsed);
 
-            if (laps.isEmpty() && !"vinnare".equalsIgnoreCase(formUsed)) {
-                formUsed = "vinnare";
-                laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, formUsed);
-            }
-            if (laps.isEmpty()) {
-                formUsed = null;
-                laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, null);
-            }
+            if (laps.isEmpty()) continue;
 
             List<LapSnapshot> lapSnaps = new ArrayList<>();
             for (String lap : laps.stream().sorted(Comparator.comparingInt(TravTools::lapKey)).toList()) {
                 List<String> startersRaw = horseResultRepo.distinctStartersByDateBanKodFormLap(startDate, banKod, formUsed, lap);
                 List<Integer> starters = (startersRaw == null ? List.<Integer>of() : startersRaw.stream()
-                        .map(TravTools::safeInt)
-                        .filter(x -> x >= 0 && x <= 8)
+                        .map(TravQueryParser::starter)
+                        .filter(Objects::nonNull)
                         .distinct()
                         .sorted()
                         .toList());
@@ -126,9 +92,8 @@ public class TravTools {
         return new DaySnapshot(startDate, requestedForm, out);
     }
 
-
-    private static boolean isStarterZero(HorseResult r) {
-        return safeInt(r.getStarter()) == 0;
+    private static boolean isStarterZero(HorseResult row) {
+        return row != null && "0".equals(parseStarterFlexible(row.getStarter()));
     }
 
     private static List<HorseResult> preferStarterZero(List<HorseResult> rows) {
@@ -144,39 +109,75 @@ public class TravTools {
     }
 
     private static double bonusFromPerspectives(
-            int avgPrestation, int avgForm, int avgFart, int avgMotstand,
-            int avgKlass, int avgSkrik, int avgPlacering
+            Double avgPrestation, Double avgForm, Double avgFart, Double avgMotstand,
+            Double avgKlass, Double avgSkrik, Double avgPlacering
     ) {
-        double raw = 0.06 * avgPrestation
-                + 0.05 * avgForm
-                + 0.04 * avgFart
-                + 0.03 * avgMotstand
-                + 0.02 * avgKlass
-                + 0.01 * avgSkrik
-                + 0.01 * avgPlacering;
+        double raw = 0.06 * ( avgPrestation == null ? 0 : avgPrestation)
+                + 0.05 * ( avgForm == null ? 0 : avgForm)
+                + 0.04 * ( avgFart == null ? 0 : avgFart)
+                + 0.03 * ( avgMotstand == null ? 0 : avgMotstand)
+                + 0.02 * ( avgKlass == null ? 0 : avgKlass)
+                + 0.01 * ( avgSkrik == null ? 0 : avgSkrik)
+                + 0.01 * ( avgPlacering == null ? 0 : avgPlacering);
         return raw * 0.20;
-    }
-
-
-    private static Integer placementTop6FromName(String horseName) {
-        if (horseName == null) return null;
-        Matcher m = Pattern.compile("\\((\\d)\\)\\s*$").matcher(horseName.trim());
-        if (!m.find()) return null;
-        int p = Integer.parseInt(m.group(1));
-        return (p >= 1 && p <= 6) ? p : null;
     }
 
     private static String stripPlacementFromName(String horseName) {
         if (horseName == null) return null;
-        return horseName.replaceAll("\\s*\\(\\d\\)\\s*$", "").trim();
+        return horseName.replaceAll("\\s*\\(\\d{1,2}\\)\\s*$", "").trim();
     }
 
-    @Tool(description = "Hämta värden om hästar baserat på ett id.")
+    @Tool(description = "Hämta analysvärden från rank via id. Detta är inte ett tävlingsresultat.")
     public HorseResult getHorseValues(Long id) {
-        return horseResultRepo.findById(id).orElse(null);
+        return id == null ? null : horseResultRepo.findById(id).orElse(null);
     }
 
-    @Tool(description = "Lista odds/värden för ett datum och en bana. Accepterar svenska datum (t.ex. '17 juli 2025') och bannamn (t.ex. 'Solvalla') eller bankod (t.ex. 'S').")
+    @Tool(name = "race_results_by_date_track_lap", description = "Hämta registrerade tävlingsresultat från roi.resultat kopplat till rank för datum, bana, faktiskt loppnummer och spelform (tomt = vinnare). Använd för vem som vann/placeringar, inte prognoser. Dubbletter mellan analysfönster slås ihop; saknade, nollkodade och motstridiga resultat markeras uttryckligen. Resultaten är lagrade uppgifter, inte garanterad liveinformation eller fullständig officiell resultatlista. Avdelningsnummer måste först kopplas till faktiskt lopp.")
+    public RaceResults raceResultsByDateTrackLap(String dateOrPhrase, String banKodOrTrack,
+                                               String lapOrPhrase, String spelFormOrNull) {
+        Integer date = parseDateFlexible(dateOrPhrase);
+        String track = resolveBanKodFlexible(banKodOrTrack);
+        String lap = parseLapFlexible(lapOrPhrase);
+        String form = parseSpelFormFlexible(spelFormOrNull);
+        if (form == null) form = "vinnare";
+        if (date == null || track == null || lap == null) {
+            return new RaceResults(date, track, lap, form, "INVALID_QUERY", "Ange ett giltigt datum, en entydig bana och faktiskt loppnummer. Avdelning är inte samma sak som loppnummer.", List.of());
+        }
+        List<HorseResult> field = horseResultRepo.findField(date, track, lap, form);
+        if (field.isEmpty()) {
+            return new RaceResults(date, track, lap, form, "NO_DATA", "Inga lagrade hästar för exakt detta datum, bana, lopp och spelform. Det betyder inte att loppet inte körts.", List.of());
+        }
+        List<Long> ids = field.stream().map(HorseResult::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<Roi>> byRank = ids.isEmpty() ? Map.of() : roiRepo.findByRankIdIn(ids).stream()
+                .collect(Collectors.groupingBy(Roi::getRankId));
+        Map<String, List<HorseResult>> horses = field.stream().collect(Collectors.groupingBy(TravTools::horseKey));
+        List<RaceResultRow> results = new ArrayList<>();
+        for (List<HorseResult> variants : horses.values()) {
+            HorseResult horse = variants.get(0);
+            List<Integer> reported = variants.stream().flatMap(r -> byRank.getOrDefault(r.getId(), List.of()).stream())
+                    .map(Roi::getResultat).filter(Objects::nonNull).distinct().sorted().toList();
+            List<Integer> positions = reported.stream().filter(p -> p > 0 && p <= 30).toList();
+            boolean conflicting = positions.size() > 1;
+            Integer placement = positions.size() == 1 ? positions.get(0) : null;
+            results.add(new RaceResultRow(horse.getNumberOfHorse(), stripPlacementFromName(horse.getNameOfHorse()),
+                    placement, conflicting ? "CONFLICTING" : placement == null ? "UNAVAILABLE" : "RECORDED", reported));
+        }
+        results.sort(Comparator.comparing(RaceResultRow::placement, Comparator.nullsLast(Integer::compareTo))
+                .thenComparing(RaceResultRow::numberOfHorse, Comparator.nullsLast(Integer::compareTo)));
+        long recorded = results.stream().filter(r -> r.placement() != null).count();
+        String status = results.stream().anyMatch(r -> "CONFLICTING".equals(r.status())) ? "CONFLICTING"
+                : recorded == 0 ? "NO_RECORDED_RESULTS" : recorded < results.size() ? "PARTIAL" : "RECORDED";
+        return new RaceResults(date, track, lap, form, status,
+                "Källa: lagrade roi.resultat via rank. Saknad eller nollkodad placering får inte tolkas som förlust, strykning eller att loppet ännu inte körts. Vid konflikt behövs kontroll mot aktuell resultatkälla.", results);
+    }
+
+    public record RaceResults(Integer startDate, String banKod, String lap, String spelForm,
+                              String status, String sourceNote, List<RaceResultRow> horses) { }
+
+    public record RaceResultRow(Integer numberOfHorse, String name, Integer placement,
+                                String status, List<Integer> reportedValues) { }
+
+    @Tool(description = "Lista analysvärden från rank för ett datum och en bana, inte målgång eller spelbolagsodds. Accepterar svenska datum (t.ex. '17 juli 2025') och bannamn (t.ex. 'Solvalla') eller bankod (t.ex. 'S').")
     public List<HorseResult> listByDateAndTrackFlexible(String dateOrPhrase, String banKodOrTrack) {
         Integer start = parseDateFlexible(dateOrPhrase);
         String banKod = resolveBanKodFlexible(banKodOrTrack);
@@ -188,7 +189,7 @@ public class TravTools {
     }
 
     @Tool(name = "results_by_date_track_lap",
-            description = "Oddsen/värden (Analys/Prestation/Motstånd/Tid) för datum, bana och lopp. Accepterar svenska datum, bannamn/bankod och t.ex. 'lopp 5' eller '5'.")
+            description = "Analysvärden (Analys/Prestation/Motstånd/Tid) för datum, bana och faktiskt loppnummer. Detta verktyg visar inte tävlingsresultat; använd race_results_by_date_track_lap för placeringar. Accepterar svenska datum, bannamn/bankod och t.ex. 'lopp 5' eller '5'.")
     public List<HorseResult> listResultsByDateAndTrackAndLap(String dateOrPhrase, String banKodOrTrack, String lapOrPhrase) {
         Integer startDate = parseDateFlexible(dateOrPhrase);
         String banKod = resolveBanKodFlexible(banKodOrTrack);
@@ -202,16 +203,11 @@ public class TravTools {
 
     @Tool(description = "Hämta topp N hästar (Analys) för datum, bana och lopp. Accepterar naturliga indata som svensk fras.")
     public List<HorseResult> topHorses(String dateOrPhrase, String banKodOrTrack, String lapOrPhrase, Integer limit) {
-        if (limit == null || limit <= 0) limit = 3;
-        List<HorseResult> all = listResultsByDateAndTrackAndLap(dateOrPhrase, banKodOrTrack, lapOrPhrase);
-        return all.stream()
-                .sorted((a, b) -> parse(b.getProcentAnalys()) - parse(a.getProcentAnalys()))
-                .limit(limit)
-                .toList();
+        return topByField(dateOrPhrase, banKodOrTrack, lapOrPhrase, "vinnare", limit);
     }
 
     @Tool(name = "pick_winner_across_starters",
-            description = "Välj vinnare genom att väga ihop alla tillgängliga 'starter'-fönster för datum, bana, spelform och lopp. Returnerar topp 3 med motivering.")
+            description = "Ranka vinnarkandidater genom att väga ihop tillgängliga analysfönster för exakt datum, bana, spelform och faktiskt lopp. Bevarar decimaler och okända delvärden. Poäng är en heuristisk ranking, inte vinstsannolikhet eller tävlingsresultat.")
     public List<WinnerSuggestion> pickWinnerAcrossStarters(String dateOrPhrase,
                                                            String banKodOrTrack,
                                                            String lapOrPhrase,
@@ -221,121 +217,53 @@ public class TravTools {
         String banKod = resolveBanKodFlexible(banKodOrTrack);
         String lap = parseLapFlexible(lapOrPhrase);
         String parsedForm = parseSpelFormFlexible(spelFormOrPhrase);
-        if (topN == null || topN <= 0) topN = 3;
+        topN = boundedLimit(topN, 3, 20);
 
         if (startDate == null || banKod == null || lap == null) return List.of();
 
-        boolean aggregator = isAggregatorSpelForm(parsedForm);
         String effectiveForm = (parsedForm == null ? "vinnare" : parsedForm);
 
         List<HorseResult> rows = horseResultRepo
                 .findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, effectiveForm);
 
-        rows = preferStarterZero(rows);
-
-        if (rows.isEmpty() || aggregator) {
-            effectiveForm = "vinnare";
-            rows = horseResultRepo.findByStartDateAndBanKodAndLapAndSpelFormIgnoreCase(startDate, banKod, lap, "vinnare");
-            rows = preferStarterZero(rows);
-        }
-
-        if (rows.isEmpty()) {
-            rows = horseResultRepo.findByStartDateAndBanKodAndLap(startDate, banKod, lap);
-            rows = preferStarterZero(rows);
-            effectiveForm = "vinnare";
-        }
+        rows = uniqueVariants(rows).stream()
+                .filter(r -> TravQueryParser.percent(r.getProcentAnalys()) != null)
+                .filter(r -> TravQueryParser.starter(r.getStarter()) != null)
+                .toList();
 
         if (rows.isEmpty()) return List.of();
 
         final String formForReturn = effectiveForm;
 
         Map<String, List<HorseResult>> byHorse = rows.stream()
-                .collect(Collectors.groupingBy(r -> stripPlacementFromName(r.getNameOfHorse())));
+                .collect(Collectors.groupingBy(TravTools::horseKey));
 
         List<WinnerSuggestion> ranked = byHorse.entrySet().stream().map(e -> {
-                    String baseName = e.getKey();
                     List<HorseResult> list = e.getValue();
+                    String displayName = stripPlacementFromName(list.get(0).getNameOfHorse());
 
-                    Integer placement = list.stream()
-                            .map(r -> placementTop6FromName(r.getNameOfHorse()))
-                            .filter(Objects::nonNull)
-                            .min(Integer::compareTo)
-                            .orElse(null);
-
-                    String displayName = (placement == null) ? baseName : (baseName + " (" + placement + ")");
-
-                    List<Integer> starters = new ArrayList<>();
-                    List<Integer> analys = new ArrayList<>();
-                    List<Integer> prest = new ArrayList<>();
-                    List<Integer> tid = new ArrayList<>();
-                    List<Integer> motst = new ArrayList<>();
-
-                    List<Integer> klass = new ArrayList<>();
-                    List<Integer> skrik = new ArrayList<>();
-                    List<Integer> plac = new ArrayList<>();
-                    List<Integer> formv = new ArrayList<>();
-
-                    for (HorseResult r : list) {
-                        int s = safeInt(r.getStarter());
-                        starters.add(s);
-
-                        analys.add(safeInt(r.getProcentAnalys()));
-                        prest.add(safeInt(r.getProcentPrestation()));
-                        tid.add(safeInt(r.getProcentFart()));
-                        motst.add(safeInt(r.getProcentMotstand()));
-
-                        klass.add(safeInt(r.getKlassProcent()));
-                        skrik.add(safeInt(r.getProcentSkrik()));
-                        plac.add(safeInt(r.getProcentPlacering()));
-                        formv.add(safeInt(r.getProcentForm()));
-                    }
-
-                    double sumW = 0;
-                    double sumAnalys = 0, sumPrest = 0, sumTid = 0, sumMot = 0;
-                    double sumKlass = 0, sumSkrik = 0, sumPlac = 0, sumForm = 0;
-
-                    for (int i = 0; i < starters.size(); i++) {
-                        double w = starterWeight(starters.get(i));
-                        sumW += w;
-
-                        sumAnalys += w * analys.get(i);
-                        sumPrest += w * prest.get(i);
-                        sumTid += w * tid.get(i);
-                        sumMot += w * motst.get(i);
-
-                        sumKlass += w * klass.get(i);
-                        sumSkrik += w * skrik.get(i);
-                        sumPlac  += w * plac.get(i);
-                        sumForm  += w * formv.get(i);
-                    }
-
-                    double wAvgAnalys = sumAnalys / sumW;
-
-                    double mean = analys.stream().mapToDouble(a -> a).average().orElse(0);
-                    double var = analys.stream().mapToDouble(a -> (a - mean) * (a - mean)).average().orElse(0);
-                    double std = Math.sqrt(var);
-
-                    int avgA = (int) Math.round(sumAnalys / sumW);
-                    int avgP = (int) Math.round(sumPrest / sumW);
-                    int avgT = (int) Math.round(sumTid / sumW);
-                    int avgM = (int) Math.round(sumMot / sumW);
-
-                    int avgK = (int) Math.round(sumKlass / sumW);
-                    int avgS = (int) Math.round(sumSkrik / sumW);
-                    int avgPl = (int) Math.round(sumPlac / sumW);
-                    int avgF = (int) Math.round(sumForm / sumW);
-
-                    double baseScore = wAvgAnalys - 0.5 * std;
-                    double bonus = bonusFromPerspectives(avgP, avgF, avgT, avgM, avgK, avgS, avgPl);
-                    double score = baseScore + bonus;
-
+                    List<Integer> starters = list.stream().map(r -> TravQueryParser.starter(r.getStarter())).toList();
+                    Double avgA = weightedAverage(list, HorseResult::getProcentAnalys);
+                    Double avgP = weightedAverage(list, HorseResult::getProcentPrestation);
+                    Double avgT = weightedAverage(list, HorseResult::getProcentFart);
+                    Double avgM = weightedAverage(list, HorseResult::getProcentMotstand);
+                    Double avgK = weightedAverage(list, HorseResult::getKlassProcent);
+                    Double avgS = weightedAverage(list, HorseResult::getProcentSkrik);
+                    Double avgPl = weightedAverage(list, HorseResult::getProcentPlacering);
+                    Double avgF = weightedAverage(list, HorseResult::getProcentForm);
+                    double mean = list.stream().mapToDouble(TravTools::analysisValue).average().orElseThrow();
+                    double variance = list.stream().mapToDouble(r -> Math.pow(analysisValue(r) - mean, 2)).average().orElseThrow();
+                    double score = avgA - 0.5 * Math.sqrt(variance)
+                            + bonusFromPerspectives(avgP, avgF, avgT, avgM, avgK, avgS, avgPl);
                     String startersStr = starters.stream().sorted().map(String::valueOf).distinct()
                             .collect(Collectors.joining(","));
 
-                    return new WinnerSuggestion(
+                    WinnerSuggestion suggestion = new WinnerSuggestion(
                             displayName, banKod, lap, startDate, formForReturn,
                             score, starters.size(), startersStr, avgA, avgP, avgT, avgM
                     );
+                    suggestion.numberOfHorse = list.get(0).getNumberOfHorse();
+                    return suggestion;
                 }).sorted((a, b) -> Double.compare(b.score, a.score))
                 .limit(topN)
                 .toList();
@@ -350,20 +278,23 @@ public class TravTools {
             description = "Tolka en svensk fras med datum, bana, spelform och lopp (utan antal starter) och välj topp N över alla starter. Ex: 'Vem vinner på Solvalla 2026-09-03 med spelform vinnare i lopp 7?'"
     )
     public List<WinnerSuggestion> pickWinnerBySwedishPhrase(String phrase, Integer topN) {
-        if (topN == null || topN <= 0) topN = 3;
+        topN = boundedLimit(topN, 3, 20);
         return pickWinnerAcrossStarters(phrase, phrase, phrase, phrase, topN);
     }
 
     @Tool(description = "Sök fram en häst och dess värden baserat på namnet på hästen")
     public List<HorseResult> searchByHorseName(String nameFragment) {
-        return horseResultRepo.findByNameOfHorseContainingIgnoreCase(nameFragment);
+        if (nameFragment == null || nameFragment.isBlank()) return List.of();
+        return horseResultRepo.findByNameOfHorseContainingIgnoreCaseOrderByStartDateDesc(
+                nameFragment.trim(), PageRequest.of(0, 100));
     }
 
-    @Tool(description = "Visa en hästs Travanalys odds och värden sorterade efter datum (senaste först).")
+    @Tool(description = "Visa en hästs lagrade analysvärden sorterade efter datum (senaste först), högst 100 rader. Analysfönster kan ge flera rader per lopp; detta är inte en fullständig resultathistorik.")
     public List<HorseResult> horseHistory(String nameFragment, Integer limit) {
-        if (limit == null || limit <= 0) limit = 5;
+        if (nameFragment == null || nameFragment.isBlank()) return List.of();
+        limit = boundedLimit(limit, 5, 100);
         return horseResultRepo
-                .findByNameOfHorseContainingIgnoreCaseOrderByStartDateDesc(nameFragment)
+                .findByNameOfHorseContainingIgnoreCaseOrderByStartDateDesc(nameFragment.trim(), PageRequest.of(0, limit))
                 .stream()
                 .limit(limit)
                 .toList();
@@ -376,7 +307,7 @@ public class TravTools {
 
         String norm = normalize(phrase);
         Integer date = parseDateFromSwedish(norm);
-        String banKod = toBanKod(norm);
+        String banKod = toBanKod(phrase);
         String lap = parseLap(norm);
 
         if (date == null || banKod == null || lap == null) {
@@ -435,7 +366,7 @@ public class TravTools {
         String norm = normalize(phrase);
 
         Integer date = parseDateFromSwedish(norm);
-        String banKod = toBanKod(norm);
+        String banKod = toBanKod(phrase);
         String lap = parseLap(norm);
         String spelForm = parseSpelFormFlexible(norm);
         String starter = parseStarterFlexible(norm);
@@ -447,68 +378,9 @@ public class TravTools {
                 date, banKod, lap, spelForm, starter);
     }
 
-    private static Integer parseDateRelative(String norm) {
-        ZoneId tz = ZoneId.of("Europe/Stockholm");
-        LocalDate base = LocalDate.now(tz);
-        if (norm.contains("idag")) return yyyymmdd(base);
-        if (norm.contains("imorgon") || norm.contains("i morgon")) return yyyymmdd(base.plusDays(1));
-        if (norm.contains("igar") || norm.contains("igår")) return yyyymmdd(base.minusDays(1));
-        return null;
-    }
+    private static Integer parseDateFlexible(String value) { return TravQueryParser.date(value); }
 
-    private static Integer yyyymmdd(LocalDate d) {
-        return d.getYear() * 10000 + d.getMonthValue() * 100 + d.getDayOfMonth();
-    }
-
-    private static String parseAvdFlexible(String norm) {
-        Matcher m1 = Pattern.compile("\\bavd(elning)?\\s*(\\d{1,2})\\b").matcher(norm);
-        if (m1.find()) return m1.group(2);
-
-        Matcher m2 = Pattern.compile("\\b(v85|v86|v64|v65|dd|ld)[-: ]?(\\d{1,2})\\b").matcher(norm);
-        if (m2.find()) return m2.group(2);
-        return null;
-    }
-
-    private static Integer parseMonthDayNoYear(String norm) {
-        Matcher md = Pattern.compile("\\b(\\d{1,2})[-/ ](\\d{1,2})\\b").matcher(norm);
-        if (md.find()) {
-            int month = Integer.parseInt(md.group(1));
-            int day = Integer.parseInt(md.group(2));
-            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return 2026 * 10000 + month * 100 + day;
-        }
-        return null;
-    }
-
-    private static Integer parseDateFlexible(String anyDate) {
-        if (anyDate == null || anyDate.isBlank()) return null;
-        String norm = normalize(anyDate);
-
-        Integer rel = parseDateRelative(norm);
-        if (rel != null) return rel;
-
-        Integer fromWords = parseDateFromSwedish(norm);
-        if (fromWords != null) return fromWords;
-
-        Integer md = parseMonthDayNoYear(norm);
-        if (md != null) return md;
-
-        Matcher ymdDigits = Pattern.compile("(\\d{4})[-/ ]?(\\d{2})[-/ ]?(\\d{2})").matcher(norm);
-        if (ymdDigits.find()) {
-            int year = Integer.parseInt(ymdDigits.group(1));
-            int month = Integer.parseInt(ymdDigits.group(2));
-            int day = Integer.parseInt(ymdDigits.group(3));
-            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return year * 10000 + month * 100 + day;
-        }
-        return null;
-    }
-
-    private static String parseLapOrAvdFlexible(String v) {
-        if (v == null || v.isBlank()) return null;
-        String norm = normalize(v);
-        String avd = parseAvdFlexible(norm);
-        if (avd != null) return avd;
-        return parseLap(norm);
-    }
+    private static String parseLapOrAvdFlexible(String value) { return TravQueryParser.race(value); }
 
     @Tool(name = "dates_all", description = "Lista tillgängliga datum (senaste först).")
     public List<Integer> datesAll() {
@@ -537,7 +409,7 @@ public class TravTools {
         return horseResultRepo.distinctSpelFormByDateAndBanKod(d, b);
     }
 
-    @Tool(name = "lopp_by_date_track_form", description = "Lista lopp/avd för datum + bana (+ ev. spelform).")
+    @Tool(name = "lopp_by_date_track_form", description = "Lista faktiska lopp för datum + bana (+ ev. spelform).")
     public List<String> loppByDateTrackForm(String dateOrPhrase, String banKodOrTrack, String spelFormOrNull) {
         Integer d = parseDateFlexible(dateOrPhrase);
         String b = resolveBanKodFlexible(banKodOrTrack);
@@ -546,7 +418,7 @@ public class TravTools {
         return horseResultRepo.distinctLapByDateBanKodAndForm(d, b, f);
     }
 
-    @Tool(name = "starters_by_date_track_form_lopp", description = "Lista möjliga starter-värden för datum + bana + spelform + lopp/avd.")
+    @Tool(name = "starters_by_date_track_form_lopp", description = "Lista möjliga starter-värden för datum + bana + spelform + faktiska lopp.")
     public List<String> startersByDateTrackFormLopp(String dateOrPhrase, String banKodOrTrack, String spelFormOrNull, String lapOrAvd) {
         Integer d = parseDateFlexible(dateOrPhrase);
         String b = resolveBanKodFlexible(banKodOrTrack);
@@ -556,57 +428,64 @@ public class TravTools {
         return horseResultRepo.distinctStartersByDateBanKodFormLap(d, b, f, lap);
     }
 
-    @Tool(name = "field_sorted", description = "Hämta hela fältet sorterat på Analys (desc) för datum + bana + lopp/avd (+ ev. spelform).")
+    @Tool(name = "field_sorted", description = "Hämta hela fältet sorterat på Analys (desc) för datum + bana + faktiska lopp (+ ev. spelform).")
     public List<HorseResult> fieldSorted(String dateOrPhrase, String banKodOrTrack, String lapOrAvd, String spelFormOrNull) {
         Integer d = parseDateFlexible(dateOrPhrase);
         String b = resolveBanKodFlexible(banKodOrTrack);
         String lap = parseLapOrAvdFlexible(lapOrAvd);
         String f = parseSpelFormFlexible(spelFormOrNull);
+        if (f == null) f = "vinnare";
         if (d == null || b == null || lap == null) return List.of();
 
         List<HorseResult> rows = horseResultRepo.findField(d, b, lap, f);
         rows = onlyStarterZeroOrAllIfMissing(rows);
         rows = preferStarterZero(rows);
         return rows.stream()
-                .sorted(Comparator.comparingInt((HorseResult r) -> safeInt(r.getProcentAnalys())).reversed())
+                .sorted(Comparator.comparingDouble(TravTools::analysisValue).reversed())
                 .toList();
     }
 
-    @Tool(name = "top_by_field", description = "Topp N i ett fält (datum + bana + lopp/avd + ev. spelform).")
+    @Tool(name = "top_by_field", description = "Topp N i ett fält (datum + bana + faktiska lopp + ev. spelform).")
     public List<HorseResult> topByField(String dateOrPhrase, String banKodOrTrack, String lapOrAvd, String spelFormOrNull, Integer topN) {
-        if (topN == null || topN <= 0) topN = 3;
+        topN = boundedLimit(topN, 3, 20);
         return fieldSorted(dateOrPhrase, banKodOrTrack, lapOrAvd, spelFormOrNull).stream()
+                .filter(r -> TravQueryParser.percent(r.getProcentAnalys()) != null)
                 .limit(topN)
                 .toList();
     }
 
-    @Tool(name = "top_by_field_with_starter", description = "Topp N för ett specifikt starter-värde (datum+bana+spelform+lopp/avd+starter).")
+    @Tool(name = "top_by_field_with_starter", description = "Topp N för ett specifikt starter-värde (datum+bana+spelform+faktiska lopp+starter).")
     public List<HorseResult> topByFieldWithStarter(String dateOrPhrase, String banKodOrTrack, String lapOrAvd, String spelForm, String starter, Integer topN) {
-        if (topN == null || topN <= 0) topN = 3;
+        topN = boundedLimit(topN, 3, 20);
         List<HorseResult> rows = resultsByDateTrackLapFormStarter(dateOrPhrase, banKodOrTrack, lapOrAvd, spelForm, starter);
-        return rows.stream()
-                .sorted(Comparator.comparingInt((HorseResult r) -> safeInt(r.getProcentAnalys())).reversed())
+        return uniqueVariants(rows).stream()
+                .filter(r -> TravQueryParser.percent(r.getProcentAnalys()) != null)
+                .sorted(Comparator.comparingDouble(TravTools::analysisValue).reversed())
                 .limit(topN)
                 .toList();
     }
 
-    @Tool(name = "best_per_lopp", description = "Ge bästa häst (högst Analys) per lopp/avd för datum + bana (+ ev. spelform). Returnerar en rad per avdelning.")
+    @Tool(name = "best_per_lopp", description = "Ge bästa häst (högst Analys) per faktiska lopp för datum + bana (+ ev. spelform). Returnerar en rad per lopp.")
     public List<PerLoppBest> bestPerLopp(String dateOrPhrase, String banKodOrTrack, String spelFormOrNull) {
         Integer d = parseDateFlexible(dateOrPhrase);
         String b = resolveBanKodFlexible(banKodOrTrack);
         String f = parseSpelFormFlexible(spelFormOrNull);
+        if (f == null) f = "vinnare";
         if (d == null || b == null) return List.of();
 
         List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(d, b, f);
         List<PerLoppBest> out = new ArrayList<>();
-        for (String lap : laps) {
+        for (String lap : laps.stream().sorted(Comparator.comparingInt(TravTools::lapKey)).toList()) {
             List<HorseResult> field = horseResultRepo.findField(d, b, lap, f);
             field = onlyStarterZeroOrAllIfMissing(field);
             field = preferStarterZero(field);
-            field.sort(Comparator.comparingInt((HorseResult r) -> safeInt(r.getProcentAnalys())).reversed());
+            field = field.stream().sorted(Comparator.comparingDouble(TravTools::analysisValue).reversed()).toList();
             if (!field.isEmpty()) {
                 HorseResult top = field.get(0);
-                out.add(new PerLoppBest(lap, top.getNameOfHorse(), safeInt(top.getProcentAnalys()), top.getNumberOfHorse()));
+                if (TravQueryParser.percent(top.getProcentAnalys()) == null) continue;
+                PerLoppBest best = new PerLoppBest(lap, top.getNameOfHorse(), TravQueryParser.percent(top.getProcentAnalys()), top.getNumberOfHorse());
+                best.starter = top.getStarter();
+                out.add(best);
             }
         }
         return out;
@@ -615,21 +494,15 @@ public class TravTools {
     public static class PerLoppBest {
         public String lap;
         public String name;
-        public int analys;
+        public Double analys;
         public Integer nr;
-        public PerLoppBest(String lap, String name, int analys, Integer nr) { this.lap = lap; this.name = name; this.analys = analys; this.nr = nr; }
+        public String starter;
+        public PerLoppBest(String lap, String name, Double analys, Integer nr) { this.lap = lap; this.name = name; this.analys = analys; this.nr = nr; }
     }
 
-    @Tool(name = "pick_winner_by_phrase_smart", description = "Som pick_winner_by_swedish_phrase men förstår även 'avd 3' och 'v85-1'.")
+    @Tool(name = "pick_winner_by_phrase_smart", description = "Vinnarförslag från en svensk fras med faktiskt loppnummer. Avdelning måste först kopplas till rätt lopp.")
     public List<WinnerSuggestion> pickWinnerByPhraseSmart(String phrase, Integer topN) {
-        if (topN == null || topN <= 0) topN = 3;
-        String norm = normalize(phrase);
-        String lap = parseAvdFlexible(norm);
-        String effective = phrase;
-        if (lap != null && !norm.contains("lopp")) {
-            effective = phrase + " lopp " + lap;
-        }
-        return pickWinnerBySwedishPhrase(effective, topN);
+        return pickWinnerBySwedishPhrase(phrase, topN);
     }
 
     public static class LoppTopN {
@@ -639,27 +512,18 @@ public class TravTools {
     }
 
     @Tool(name = "top_by_day_track_form",
-            description = "Topp N per lopp/avd för ett datum + bana + spelform, sorterat på vanlig Analys. Prioriterar starter=0 om den finns.")
+            description = "Topp N per faktiska lopp för ett datum + bana + spelform, sorterat på vanlig Analys. Prioriterar starter=0 om den finns.")
     public List<LoppTopN> topByDayTrackForm(String dateOrPhrase, String banKodOrTrack, String spelFormOrPhrase, Integer topN) {
 
         Integer startDate = parseDateFlexible(dateOrPhrase);
         String banKod = resolveBanKodFlexible(banKodOrTrack);
         String form = parseSpelFormFlexible(spelFormOrPhrase);
-        if (topN == null || topN <= 0) topN = 3;
+        topN = boundedLimit(topN, 3, 20);
         if (startDate == null || banKod == null) return List.of();
 
-        boolean aggregator = isAggregatorSpelForm(form);
         String effectiveForm = (form == null ? "vinnare" : form);
 
         List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, effectiveForm);
-
-        if (laps.isEmpty() || aggregator) {
-            effectiveForm = "vinnare";
-            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, "vinnare");
-        }
-        if (laps.isEmpty()) {
-            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, null);
-        }
 
         final String formForCalls = effectiveForm;
 
@@ -670,6 +534,7 @@ public class TravTools {
                         lap,
                         topByField(String.valueOf(startDate), banKod, lap, formForCalls, finalTopN)
                 ))
+                .filter(race -> !race.top.isEmpty())
                 .toList();
     }
 
@@ -680,6 +545,7 @@ public class TravTools {
     }
 
     public static class GlobalSpikSuggestion {
+        public Integer numberOfHorse;
         public String name;
         public String banKod;
         public String lap;
@@ -716,7 +582,7 @@ public class TravTools {
             description = "Välj N spikar globalt över alla banor för ett datum + spelform. Tar top2 per lopp och rankar på spikScore = winnerScore + (winnerScore - secondScore)."
     )
     public List<GlobalSpikSuggestion> pickSpikarAllTracksByDateForm(String dateOrPhrase, String spelFormOrPhrase, Integer count) {
-        if (count == null || count <= 0) count = 5;
+        count = boundedLimit(count, 5, 20);
 
         DaySnapshot snap = snapshotByDateFormAllTracks(dateOrPhrase, spelFormOrPhrase);
         if (snap == null || snap.startDate == null || snap.tracks == null || snap.tracks.isEmpty()) return List.of();
@@ -744,7 +610,7 @@ public class TravTools {
                 double edge = (second == null) ? 0.0 : (first.score - second.score);
                 double spikScore = first.score + edge;
 
-                candidates.add(new GlobalSpikSuggestion(
+                GlobalSpikSuggestion candidate = new GlobalSpikSuggestion(
                         first.name,
                         first.banKod,
                         first.lap,
@@ -756,7 +622,9 @@ public class TravTools {
                         (second == null ? null : second.name),
                         (second == null ? null : second.score),
                         first.starters
-                ));
+                );
+                candidate.numberOfHorse = first.numberOfHorse;
+                candidates.add(candidate);
             }
         }
 
@@ -767,27 +635,19 @@ public class TravTools {
     }
 
     @Tool(name = "pick_spikar_across_laps",
-            description = "Välj N spikar (vinnare) från olika lopp/avd för datum+bana+spelform. Tar bästa top1 per avd och väljer sedan de N starkaste.")
+            description = "Välj N spikar (vinnare) från olika faktiska lopp för datum+bana+spelform. Tar bästa top1 per avd och väljer sedan de N starkaste.")
     public List<WinnerSuggestion> pickSpikarAcrossLaps(String dateOrPhrase, String banKodOrTrack, String spelFormOrPhrase, Integer count) {
 
-        if (count == null || count <= 0) count = 2;
+        count = boundedLimit(count, 2, 20);
 
         Integer startDate = parseDateFlexible(dateOrPhrase);
         String banKod = resolveBanKodFlexible(banKodOrTrack);
         String form = parseSpelFormFlexible(spelFormOrPhrase);
         if (startDate == null || banKod == null) return List.of();
 
-        boolean aggregator = isAggregatorSpelForm(form);
         String effectiveForm = (form == null ? "vinnare" : form);
 
         List<String> laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, effectiveForm);
-        if (laps.isEmpty() || aggregator) {
-            effectiveForm = "vinnare";
-            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, "vinnare");
-        }
-        if (laps.isEmpty()) {
-            laps = horseResultRepo.distinctLapByDateBanKodAndForm(startDate, banKod, null);
-        }
 
         final String formForCalls = effectiveForm;
         final Integer resolvedStartDate = startDate;
@@ -809,11 +669,13 @@ public class TravTools {
                     WinnerSuggestion second = (top2.size() > 1) ? top2.get(1) : null;
                     double edge = (second == null) ? 0.0 : (first.score - second.score);
                     double spikScore = first.score + edge;
-                    return new WinnerSuggestion(
+                    WinnerSuggestion suggestion = new WinnerSuggestion(
                             first.name, first.banKod, first.lap, first.startDate, first.spelForm,
                             spikScore, first.variants, first.starters,
                             first.avgAnalys, first.avgPrestation, first.avgTid, first.avgMotstand
                     );
+                    suggestion.numberOfHorse = first.numberOfHorse;
+                    return suggestion;
                 })
                 .filter(Objects::nonNull)
                 .sorted((a, b) -> Double.compare(b.score, a.score))
@@ -832,14 +694,17 @@ public class TravTools {
         public int races;
         public int top6;
         public int wins;
-        public double winRate;
-        public double top6Rate;
+        public int recordedResults;
+        public int missingResults;
+        public String sourceNote = "Begränsat urval av lagrade lopp före frågedatumet; placeringar från roi.resultat. Saknade eller motstridiga resultat ger okänd segerandel. Detta är inte fullständig karriärstatistik.";
+        public Double winRate;
+        public Double top6Rate;
         public Double avgPlacementTop6;
         public Integer lastDate;
 
         public HistoryStats() {}
 
-        public HistoryStats(String horse, int races, int top6, int wins, double winRate, double top6Rate, Double avgPlacementTop6, Integer lastDate) {
+        public HistoryStats(String horse, int races, int top6, int wins, Double winRate, Double top6Rate, Double avgPlacementTop6, Integer lastDate) {
             this.horse = horse;
             this.races = races;
             this.top6 = top6;
@@ -903,17 +768,16 @@ public class TravTools {
 
     @Tool(
             name = "predict_day_all_tracks_using_history",
-            description = "För ett givet datum+spelform: listar alla banor+lopp som finns (snapshot), plockar toppkandidater per lopp och justerar rankingen med historik före datumet över ALLA banor. Historik tolkar topp6 via '(1)-(6)' i hästnamn."
+            description = "För ett givet datum+spelform: listar alla banor+lopp som finns (snapshot), plockar toppkandidater per lopp och justerar rankingen med historik före datumet över ALLA banor. Historik använder registrerade placeringar från roi.resultat, räknar varje lopp en gång och lämnar segerandel okänd när resultat saknas. Poängen är en heuristisk ranking, inte vinstsannolikhet."
     )
     public DayPredictionWithHistory predictDayAllTracksUsingHistory(String dateOrPhrase, String spelFormOrPhrase, Integer topN, Integer historyLimitPerHorse) {
         Integer targetDate = parseDateFlexible(dateOrPhrase);
         if (targetDate == null) return new DayPredictionWithHistory(null, null, List.of());
 
-        if (topN == null || topN <= 0) topN = 3;
-        if (historyLimitPerHorse == null || historyLimitPerHorse <= 0) historyLimitPerHorse = 2000;
+        topN = boundedLimit(topN, 3, 20);
+        historyLimitPerHorse = boundedLimit(historyLimitPerHorse, 100, 500);
 
         String form = parseSpelFormFlexible(spelFormOrPhrase);
-        if (isAggregatorSpelForm(form)) form = "vinnare";
         String requestedForm = (form == null ? "vinnare" : form);
 
         DaySnapshot snap = snapshotByDateFormAllTracks(String.valueOf(targetDate), requestedForm);
@@ -982,71 +846,59 @@ public class TravTools {
     }
 
     private HistoryStats buildHistoryStatsForHorse(String baseName, Integer beforeDate, String spelForm, int limit) {
-        if (baseName == null || baseName.isBlank() || beforeDate == null) {
-            return new HistoryStats(baseName, 0, 0, 0, 0, 0, null, null);
+        HistoryStats stats = new HistoryStats(baseName, 0, 0, 0, null, null, null, null);
+        if (baseName == null || baseName.isBlank() || beforeDate == null) return stats;
+
+        List<HorseResult> rows = horseResultRepo.historyBefore(baseName, beforeDate,
+                PageRequest.of(0, Math.min(limit * 16, 8000))).stream()
+                .filter(r -> normalize(stripPlacementFromName(r.getNameOfHorse())).equals(normalize(baseName)))
+                .toList();
+        if (rows.isEmpty()) return stats;
+
+        Map<String, List<HorseResult>> races = new LinkedHashMap<>();
+        for (HorseResult row : rows) {
+            String key = row.getStartDate() + "|" + row.getBanKod() + "|" + row.getLap();
+            if (!races.containsKey(key) && races.size() >= limit) continue;
+            races.computeIfAbsent(key, ignored -> new ArrayList<>()).add(row);
         }
-
-        List<HorseResult> rows = horseResultRepo.findByNameOfHorseContainingIgnoreCaseOrderByStartDateDesc(baseName);
-        if (rows == null || rows.isEmpty()) {
-            return new HistoryStats(baseName, 0, 0, 0, 0, 0, null, null);
-        }
-
-        int races = 0, top6 = 0, wins = 0;
-        double sumPlacement = 0;
-        int placementCount = 0;
-        Integer lastDate = null;
-
-        Set<String> seenRace = new HashSet<>();
-
-        for (HorseResult r : rows) {
-            if (r == null) continue;
-
-            Integer d = r.getStartDate();
-            if (d == null || d >= beforeDate) continue;
-
-            String rowBase = stripPlacementFromName(r.getNameOfHorse());
-            if (rowBase == null || !rowBase.equalsIgnoreCase(baseName)) continue;
-
-            if (spelForm != null && r.getSpelForm() != null) {
-                if (!normalize(r.getSpelForm()).equals(normalize(spelForm))) continue;
+        List<Long> ids = races.values().stream().flatMap(Collection::stream)
+                .map(HorseResult::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<Roi>> byRank = ids.isEmpty() ? Map.of() : roiRepo.findByRankIdIn(ids).stream()
+                .collect(Collectors.groupingBy(Roi::getRankId));
+        double sumTop6 = 0;
+        for (List<HorseResult> variants : races.values()) {
+            stats.races++;
+            if (stats.lastDate == null) stats.lastDate = variants.get(0).getStartDate();
+            List<Integer> positions = variants.stream()
+                    .flatMap(r -> byRank.getOrDefault(r.getId(), List.of()).stream())
+                    .map(Roi::getResultat).filter(Objects::nonNull)
+                    .filter(p -> p > 0 && p <= 30).distinct().toList();
+            if (positions.size() != 1) {
+                stats.missingResults++;
+                continue;
             }
-
-            String raceKey = d + "|" + r.getBanKod() + "|" + r.getLap();
-            if (!seenRace.add(raceKey)) continue;
-
-            races++;
-            if (lastDate == null) lastDate = d;
-
-            Integer p = placementTop6FromName(r.getNameOfHorse());
-            if (p != null) {
-                top6++;
-                if (p == 1) wins++;
-                sumPlacement += p;
-                placementCount++;
+            stats.recordedResults++;
+            int placement = positions.get(0);
+            if (placement == 1) stats.wins++;
+            if (placement <= 6) {
+                stats.top6++;
+                sumTop6 += placement;
             }
-
-            if (races >= limit) break;
         }
-
-        double winRate = (races == 0) ? 0.0 : (wins / (double) races);
-        double top6Rate = (races == 0) ? 0.0 : (top6 / (double) races);
-        Double avgP = (placementCount == 0) ? null : (sumPlacement / placementCount);
-
-        return new HistoryStats(baseName, races, top6, wins, winRate, top6Rate, avgP, lastDate);
+        // Unknown outcomes must not be counted as losses or silently removed from a win-rate denominator.
+        if (stats.races > 0 && stats.missingResults == 0) {
+            stats.winRate = stats.wins / (double) stats.races;
+            stats.top6Rate = stats.top6 / (double) stats.races;
+        }
+        stats.avgPlacementTop6 = stats.top6 == 0 ? null : sumTop6 / stats.top6;
+        return stats;
     }
 
-    private static double scoreBoostFromHistory(HistoryStats hs) {
-        if (hs == null || hs.races <= 0) return 0.0;
-
-        double boost = 15.0 * hs.winRate + 5.0 * hs.top6Rate;
-
-        if (hs.avgPlacementTop6 != null) {
-            boost += Math.max(0.0, (7.0 - hs.avgPlacementTop6) * 0.5);
-        }
-
-        return boost;
+    private static double scoreBoostFromHistory(HistoryStats stats) {
+        if (stats == null || stats.races < 5 || stats.winRate == null || stats.top6Rate == null) return 0.0;
+        // A heuristic ranking adjustment, never an estimated win probability. Shrink small samples.
+        return (15.0 * stats.winRate + 5.0 * stats.top6Rate) * Math.min(1.0, stats.races / 20.0);
     }
-
     private static final double STARTER_ZERO_WEIGHT = 3.0;
 
     private static double starterWeight(int starter) {
@@ -1054,23 +906,7 @@ public class TravTools {
         return Math.sqrt(starter);
     }
 
-    private static int safeInt(String s) {
-        if (s == null) return 0;
-        try {
-            String cleaned = s.replaceAll("[^0-9-]", "");
-            if (cleaned.isBlank() || "-".equals(cleaned)) return 0;
-            return Integer.parseInt(cleaned);
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
-    private static String normalize(String s) {
-        if (s == null) return null;
-        String n = Normalizer.normalize(s, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "");
-        return n.toLowerCase(Locale.ROOT).trim();
-    }
+    private static String normalize(String value) { return TravQueryParser.normalize(value); }
 
     private static boolean containsWordSpeltips(String norm) {
         return norm.contains("speltips");
@@ -1086,104 +922,19 @@ public class TravTools {
         return null;
     }
 
-    private static String parseLap(String norm) {
-        if (norm == null) return null;
+    private static String parseLap(String value) { return TravQueryParser.race(value); }
 
-        Matcher avd = Pattern.compile("\\bavd(?:elning)?\\s*(\\d{1,2})\\b").matcher(norm);
-        if (avd.find()) return avd.group(1);
+    private static Integer parseDateFromSwedish(String value) { return TravQueryParser.date(value); }
 
-        Matcher pool = Pattern.compile("\\b(v85|v86|gs75|v64|v65|dd|ld)[-: ]?(\\d{1,2})\\b").matcher(norm);
-        if (pool.find()) return pool.group(2);
+    private static String resolveBanKodFlexible(String value) { return TravQueryParser.track(value); }
 
-        Matcher m1 = Pattern.compile("\\blopp\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(norm);
-        if (m1.find()) return m1.group(1);
+    private static String toBanKod(String value) { return TravQueryParser.track(value); }
 
-        String scrub = norm
-                .replaceAll("\\b\\d{4}[-/ ]?\\d{2}[-/ ]?\\d{2}\\b", " ")
-                .replaceAll("\\b\\d{8}\\b", " ")
-                .replaceAll("\\b20\\d{2}\\b", " ");
+    private static String parseSpelFormFlexible(String value) { return TravQueryParser.form(value); }
 
-        Matcher m2 = Pattern.compile("(\\d{1,2})(?!\\d)").matcher(scrub);
-        String last = null;
-        while (m2.find()) last = m2.group(1);
-        return last;
-    }
-
-    private static Integer parseDateFromSwedish(String norm) {
-        if (norm == null) return null;
-        Matcher ydm = Pattern.compile("(\\d{4})\\D{0,5}(\\d{1,2})\\D{0,5}(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)").matcher(norm);
-        if (ydm.find()) {
-            int year = Integer.parseInt(ydm.group(1));
-            int day = Integer.parseInt(ydm.group(2));
-            int month = svMonth.getOrDefault(ydm.group(3), 0);
-            if (month >= 1 && day >= 1 && day <= 31) return year * 10000 + month * 100 + day;
-        }
-        Matcher dmy = Pattern.compile("(\\d{1,2})\\D{0,5}(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\\D{0,5}(\\d{4})").matcher(norm);
-        if (dmy.find()) {
-            int day = Integer.parseInt(dmy.group(1));
-            int month = svMonth.getOrDefault(dmy.group(2), 0);
-            int year = Integer.parseInt(dmy.group(3));
-            if (month >= 1 && day >= 1 && day <= 31) return year * 10000 + month * 100 + day;
-        }
-        Matcher ymdDigits = Pattern.compile("(\\d{4})[-/ ]?(\\d{2})[-/ ]?(\\d{2})").matcher(norm);
-        if (ymdDigits.find()) {
-            int year = Integer.parseInt(ymdDigits.group(1));
-            int month = Integer.parseInt(ymdDigits.group(2));
-            int day = Integer.parseInt(ymdDigits.group(3));
-            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return year * 10000 + month * 100 + day;
-        }
-        return null;
-    }
-
-    private static String resolveBanKodFlexible(String banKodOrTrack) {
-        if (banKodOrTrack == null || banKodOrTrack.isBlank()) return null;
-        String norm = normalize(banKodOrTrack);
-        return toBanKod(norm);
-    }
-
-    private static String toBanKod(String norm) {
-        if (norm == null) return null;
-        for (String code : tackToBanKod.keySet()) {
-            if (norm.matches(".*\\b" + normalize(code) + "\\b.*")) return code;
-        }
-        for (Map.Entry<String, String> e : tackToBanKod.entrySet()) {
-            if (norm.contains(normalize(e.getValue()))) return e.getKey();
-        }
-        return null;
-    }
-
-    private static String parseSpelFormFlexible(String v) {
-        if (v == null || v.isBlank()) return "vinnare";
-        String n = normalize(v);
-
-        if (n.contains("vem vinner") || n.contains(" vinner") || n.contains(" vinn ")) return "vinnare";
-
-        Matcher m = Pattern.compile("\\bspelform\\s*([a-z0-9]+)").matcher(n);
-        if (m.find()) return m.group(1);
-
-        String[] known = {"vinnare", "plats", "v86", "v85", "v64", "v65", "dd", "ld"};
-        for (String k : known) {
-            if (n.contains(k)) return k;
-        }
-
-        String sanitized = n.replaceAll("[^a-z0-9]", "");
-        return sanitized.isBlank() ? "vinnare" : sanitized;
-    }
-
-    private static boolean isAggregatorSpelForm(String s) {
-        if (s == null) return false;
-        String n = s.toLowerCase(Locale.ROOT).trim();
-        return n.equals("trio") || n.equals("tvilling") || n.equals("komb") || n.equals("trippel") || n.equals("triple");
-    }
-
-    private static String parseStarterFlexible(String v) {
-        if (v == null || v.isBlank()) return null;
-        String n = normalize(v);
-        Matcher m = Pattern.compile("(\\d+)\\s*starter").matcher(n);
-        if (m.find()) return m.group(1);
-        Matcher onlyNum = Pattern.compile("^(\\d+)$").matcher(n);
-        if (onlyNum.find()) return onlyNum.group(1);
-        return null;
+    private static String parseStarterFlexible(String value) {
+        Integer starter = TravQueryParser.starter(value);
+        return starter == null ? null : starter.toString();
     }
 
     private static String parseLapFlexible(String lapOrPhrase) {
@@ -1191,15 +942,8 @@ public class TravTools {
         return parseLapOrAvdFlexible(lapOrPhrase);
     }
 
-    private int parse(String val) {
-        try {
-            return Integer.parseInt(val);
-        } catch (Exception e) {
-            return -1;
-        }
-    }
-
     public static class WinnerSuggestion {
+        public Integer numberOfHorse;
         public String name;
         public String banKod;
         public String lap;
@@ -1208,16 +952,16 @@ public class TravTools {
         public double score;
         public int variants;
         public String starters;
-        public int avgAnalys;
-        public int avgPrestation;
-        public int avgTid;
-        public int avgMotstand;
+        public Double avgAnalys;
+        public Double avgPrestation;
+        public Double avgTid;
+        public Double avgMotstand;
 
         public WinnerSuggestion() { }
 
         public WinnerSuggestion(String name, String banKod, String lap, Integer startDate, String spelForm,
                                 double score, int variants, String starters,
-                                int avgAnalys, int avgPrestation, int avgTid, int avgMotstand) {
+                                Double avgAnalys, Double avgPrestation, Double avgTid, Double avgMotstand) {
             this.name = name;
             this.banKod = banKod;
             this.lap = lap;
@@ -1234,6 +978,7 @@ public class TravTools {
     }
 
     public static class GlobalSpikSuggestionWithHistory {
+        public Integer numberOfHorse;
         public String name;
         public String banKod;
         public String lap;
@@ -1276,14 +1021,13 @@ public class TravTools {
     public List<GlobalSpikSuggestionWithHistory> pickSpikarAllTracksUsingHistory(
             String dateOrPhrase, String spelFormOrPhrase, Integer count, Integer historyLimitPerHorse
     ) {
-        if (count == null || count <= 0) count = 2;
-        if (historyLimitPerHorse == null || historyLimitPerHorse <= 0) historyLimitPerHorse = 200;
+        count = boundedLimit(count, 2, 20);
+        historyLimitPerHorse = boundedLimit(historyLimitPerHorse, 100, 500);
 
         Integer targetDate = parseDateFlexible(dateOrPhrase);
         if (targetDate == null) return List.of();
 
         String form = parseSpelFormFlexible(spelFormOrPhrase);
-        if (isAggregatorSpelForm(form)) form = "vinnare";
         if (form == null) form = "vinnare";
 
         DayPredictionWithHistory day = predictDayAllTracksUsingHistory(
@@ -1309,13 +1053,15 @@ public class TravTools {
                 WinnerSuggestion pick = first.pick;
                 if (pick == null) continue;
 
-                candidates.add(new GlobalSpikSuggestionWithHistory(
+                GlobalSpikSuggestionWithHistory candidate = new GlobalSpikSuggestionWithHistory(
                         pick.name, pick.banKod, pick.lap, pick.startDate, pick.spelForm,
                         spikScore, w1, edge,
                         (second == null ? null : (second.pick == null ? null : second.pick.name)),
                         (second == null ? null : w2),
                         first.historyBoost, pick.starters
-                ));
+                );
+                candidate.numberOfHorse = pick.numberOfHorse;
+                candidates.add(candidate);
             }
         }
 
@@ -1326,8 +1072,53 @@ public class TravTools {
     }
 
     private static List<HorseResult> onlyStarterZeroOrAllIfMissing(List<HorseResult> rows) {
-        if (rows == null || rows.isEmpty()) return rows;
-        List<HorseResult> zero = rows.stream().filter(TravTools::isStarterZero).toList();
-        return zero.isEmpty() ? rows : zero;
+        if (rows == null || rows.isEmpty()) return List.of();
+        List<HorseResult> unique = uniqueVariants(rows);
+        // One common history window keeps a regular ranking comparable and each horse unique.
+        Integer selected = unique.stream().map(r -> TravQueryParser.starter(r.getStarter()))
+                .filter(Objects::nonNull).max(Integer::compareTo).orElse(null);
+        if (unique.stream().anyMatch(TravTools::isStarterZero)) selected = 0;
+        final Integer chosenStarter = selected;
+        Map<String, HorseResult> field = new LinkedHashMap<>();
+        unique.stream().filter(r -> Objects.equals(TravQueryParser.starter(r.getStarter()), chosenStarter))
+                .forEach(r -> field.putIfAbsent(horseKey(r), r));
+        return new ArrayList<>(field.values());
+    }
+
+    private static String horseKey(HorseResult row) {
+        return row.getNumberOfHorse() != null ? "nr:" + row.getNumberOfHorse()
+                : "name:" + normalize(stripPlacementFromName(row.getNameOfHorse()));
+    }
+
+    private static List<HorseResult> uniqueVariants(List<HorseResult> rows) {
+        Map<String, HorseResult> unique = new LinkedHashMap<>();
+        rows.stream().filter(Objects::nonNull)
+                .filter(r -> r.getNameOfHorse() != null && !r.getNameOfHorse().isBlank())
+                .sorted(Comparator.comparing(HorseResult::getId, Comparator.nullsLast(Comparator.reverseOrder())))
+                .forEach(r -> unique.putIfAbsent(horseKey(r) + "|" + r.getStarter(), r));
+        return new ArrayList<>(unique.values());
+    }
+
+    private static double analysisValue(HorseResult row) {
+        Double value = TravQueryParser.percent(row.getProcentAnalys());
+        return value == null ? -1 : value;
+    }
+
+    private static Double weightedAverage(List<HorseResult> rows, Function<HorseResult, String> metric) {
+        double weighted = 0;
+        double weights = 0;
+        for (HorseResult row : rows) {
+            Double value = TravQueryParser.percent(metric.apply(row));
+            Integer starter = TravQueryParser.starter(row.getStarter());
+            if (value == null || starter == null) continue;
+            double weight = starterWeight(starter);
+            weighted += value * weight;
+            weights += weight;
+        }
+        return weights == 0 ? null : Math.round(weighted / weights * 100.0) / 100.0;
+    }
+
+    private static int boundedLimit(Integer value, int fallback, int maximum) {
+        return value == null || value <= 0 ? fallback : Math.min(value, maximum);
     }
 }

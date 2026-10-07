@@ -13,9 +13,9 @@ public class WebSearchTools {
         this.webSearchService = webSearchService;
     }
 
-    @Tool(description = "Search the live web for fresh or changing information such as news, schedules, dates, prices, rules, weather, sports, releases, and current events. Avoid using this for stable facts or when internal knowledge, vector store, memory, or other local tools are enough.")
+    @Tool(description = "Kontrollera aktuella travresultat, strykningar, starttider, odds, regler eller nyheter på webben. Använd när färska eller externa fakta behövs och intern data inte räcker. Returnerar svenska uppgifter med källänkar och kontrolltid, eller tydlig information om att uppgiften inte kunde verifieras. Använd inte för vanlig webbplatshjälp eller för att ersätta Travanalys egen ranking.")
     public String searchWeb(
-                             @ToolParam(description = "The exact web search question to look up") String query) {
+                             @ToolParam(description = "Precis sökfråga med känt datum, bana, lopp/avdelning och hästnamn. Inga privata uppgifter eller hela chatthistoriken.") String query) {
         return webSearchService.search(query);
     }
 }

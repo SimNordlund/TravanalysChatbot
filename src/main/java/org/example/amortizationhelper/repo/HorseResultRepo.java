@@ -1,6 +1,7 @@
 package org.example.amortizationhelper.repo;
 
 import org.example.amortizationhelper.Entity.HorseResult;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,6 +19,16 @@ public interface HorseResultRepo extends JpaRepository<HorseResult, Long> {
     List<HorseResult> findByStartDateAndBanKodAndLap(Integer startDate, String banKod, String lap);
 
     List<HorseResult> findByNameOfHorseContainingIgnoreCaseOrderByStartDateDesc(String name);
+
+    List<HorseResult> findByNameOfHorseContainingIgnoreCaseOrderByStartDateDesc(String name, Pageable pageable);
+
+    @Query("""
+            select hr from HorseResult hr
+            where lower(hr.nameOfHorse) like lower(concat('%', :name, '%'))
+              and hr.startDate < :beforeDate and lower(hr.spelForm) = 'vinnare'
+            order by hr.startDate desc, hr.id desc
+            """)
+    List<HorseResult> historyBefore(@Param("name") String name, @Param("beforeDate") Integer beforeDate, Pageable pageable);
 
     List<HorseResult> findByStartDateAndBanKodAndLapAndTips(Integer startDate, String banKod, String lap, Integer tips);
 

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpSyncClient;
 import lombok.RequiredArgsConstructor;
 import org.example.amortizationhelper.chat.ExpiringInMemoryChatMemory;
+import org.example.amortizationhelper.chat.TravoltaPromptService;
 import org.example.amortizationhelper.Email.EmailTools;
 import org.example.amortizationhelper.Tools.KopAndelTools;
 import org.example.amortizationhelper.Tools.StartlistaTools;
@@ -55,6 +56,7 @@ public class AiChatConfig {
     public ChatClient chatClient(ChatClient.Builder builder,
                                  VectorStore vectorStore,
                                  ResourceLoader resourceLoader,
+                                 TravoltaPromptService promptService,
                                  TravTools travTools,
                                  StartlistaTools startlistaTools,
                                  EmailTools emailTools,
@@ -67,12 +69,12 @@ public class AiChatConfig {
                                  WebSearchTools webSearchTools) throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()
-                //.similarityThreshold(0.78) hiss or kiss?
-                //.topK(4)
+                .similarityThreshold(0.5)
+                .topK(4)
                 .vectorStore(vectorStore)
                 .build();
 
-        Resource promptRes = resourceLoader.getResource("classpath:/prompts/travPrompt.st");
+        Resource promptRes = resourceLoader.getResource("classpath:/prompts/ragContext.st");
         String templateString;
         try (var in = promptRes.getInputStream()) {
             templateString = StreamUtils.copyToString(in, StandardCharsets.UTF_8);
@@ -92,20 +94,32 @@ public class AiChatConfig {
                 .build();
 
         var ragAdvisor = RetrievalAugmentationAdvisor.builder()
-                .documentRetriever(retriever)
+                .documentRetriever(query -> {
+                    try {
+                        return retriever.retrieve(query);
+                    } catch (RuntimeException e) {
+                        // Background documents must not prevent database tools and site help from working.
+                        log.warn("Document lookup unavailable ({}); continuing without PDF context.",
+                                e.getClass().getSimpleName());
+                        return List.of();
+                    }
+                })
                 .queryAugmenter(queryAugmenter)
+                .order(0)
                 .build();
 
         ChatMemory memory = MessageWindowChatMemory.builder()
                 .chatMemoryRepository(chatMemoryRepository)
-                .maxMessages(12)
+                .maxMessages(20)
                 .build();
-        var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).build();
+        // Store the user's original question before retrieval augments it with PDF excerpts.
+        var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).order(-100).build();
 
         ToolCallback[] mcpCallbacks = loadMcpCallbacks(mcpSyncClientsProvider, objectMapper);
 
         return builder
-                .defaultAdvisors(ragAdvisor, memoryAdvisor)
+                .defaultSystem(promptService.forText())
+                .defaultAdvisors(memoryAdvisor, ragAdvisor)
                 .defaultTools(travTools, startlistaTools, trackWeatherTools, webSearchTools, emailTools, kopAndelTools) //roiTools temp removed 2026-03-14
                 .defaultToolCallbacks(mcpCallbacks)
                 .build();

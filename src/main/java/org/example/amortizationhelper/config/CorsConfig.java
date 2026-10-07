@@ -24,6 +24,7 @@ public class CorsConfig {
 
         config.addAllowedHeader("Authorization");
         config.addAllowedHeader("Content-Type");
+        config.addExposedHeader("X-Conversation-Id");
 
         config.setAllowCredentials(true);
 

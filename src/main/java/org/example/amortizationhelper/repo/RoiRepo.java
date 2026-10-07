@@ -15,6 +15,9 @@ import java.util.Optional;
 public interface RoiRepo extends JpaRepository<Roi, Long> {
 
     @EntityGraph(attributePaths = "rank")
+    List<Roi> findByRankIdIn(List<Long> rankIds);
+
+    @EntityGraph(attributePaths = "rank")
     List<Roi> findByRank_StartDateAndRank_BanKod(Integer startDate, String banKod);
 
     @Query("""

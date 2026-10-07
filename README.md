@@ -2,11 +2,14 @@
 
 Travolta är en svensk travassistent som kombinerar loppdata, RAG, verktygsanrop och live-sökning för att ge tydliga och datadrivna analyser av svenska travlopp.
 
-Assistenten kan bland annat analysera hästar och lopp, hämta startlistor och väder, söka på webben, hantera röstinmatning och skicka analyser via e-post. Svaren prioriterar procentanalys, prestation, motstånd, tider och prispengar.
+Assistenten kan analysera hästar och lopp, hämta registrerade resultat, startlistor och väder, hjälpa till med webbplatsens funktioner, söka på webben, hantera röstinmatning och skicka analyser via e-post på användarens begäran. Svaren skiljer mellan analysvärden, bedömningar och registrerade loppresultat.
 
 ## Funktioner
 
 - Strömmande svensk chatt med konversationsminne.
+- Gemensamma systeminstruktioner för text och tal, med aktuell tid i Europe/Stockholm.
+- Webbplatsguide för Analys, Ranking, Spel & ROI och reducering, verifierad mot lokal webbplatskod.
+- Registrerade placeringar från `roi.resultat`, med tydlig markering av saknade och motstridiga uppgifter.
 - GPT-6 Luna för huvudchatten och OpenAI-baserad webbsökning.
 - Verktygsanrop för travdata, startlistor, väder, andelsköp och e-post.
 - RAG över inbäddade PDF-dokument med lokal `SimpleVectorStore`.
@@ -69,6 +72,9 @@ Ytterligare valfria inställningar:
 | `PORT` | `8081` | Serverport. |
 | `VECTORSTORE_FILEPATH` | `temp/vectorstore.json` | Sökväg till lokal vektordata. |
 | `CHAT_MEMORY_SESSION_TTL` | `PT6H` | Inaktivitetstid innan en chattsession förfaller. |
+| `CHAT_MAX_COMPLETION_TOKENS` | `2500` | Tak för modellens svar; enkla frågor instrueras fortfarande få korta svar. |
+| `CHAT_STREAM_TIMEOUT` | `180s` | Timeout för strömmande svar som kan behöva data- och webbsökningar. |
+| `AI_LOG_LEVEL` | `INFO` | Loggnivå för Spring AI. Använd `DEBUG` endast vid felsökning. |
 | `MCP_CLIENT_ENABLED` | `true` | Aktiverar MCP-klienten. Sätt till `false` för enklast lokal start. |
 | `MCP_REQUEST_TIMEOUT` | `15s` | Timeout för MCP-anrop. |
 | `MCP_WEATHER_COMMAND` | `npx` | Kommando som startar väderservern. |
@@ -89,7 +95,7 @@ macOS eller Linux:
 
 Backend startar normalt på `http://localhost:8081`.
 
-Vid första starten skapas vektorlagret från den inkluderade PDF-filen om `VECTORSTORE_FILEPATH` inte redan finns. Detta använder OpenAI-embeddings och kräver därför en fungerande API-nyckel.
+Vid första starten skapas vektorlagret från den inkluderade PDF-filen om `VECTORSTORE_FILEPATH` inte redan finns. Detta använder OpenAI-embeddings. Om dokumentladdningen misslyckas kan tjänsten starta med webbplatsguiden och databasverktygen; felet loggas. En misslyckad dokumentsökning blockerar inte själva chattsvaret.
 
 ## API
 
@@ -102,6 +108,8 @@ GET /chat-stream?message=Vilka%20hastar%20ar%20mest%20intressanta&conversationId
 - `message` är obligatorisk.
 - `conversationId` är valfri men bör återanvändas för sammanhängande konversationer.
 - Svaret strömmas som UTF-8 `text/plain`.
+- `X-Conversation-Id` innehåller det använda konversations-id:t. Återanvänd det även vid byte mellan text och tal.
+- Tomma frågor avvisas; radbrytningar i frågor och systemval bevaras.
 
 ### Travanalys per dag
 
@@ -120,7 +128,9 @@ POST /voice/chat
 Content-Type: multipart/form-data
 ```
 
-Skicka ljudfilen i fältet `file`. De valfria parametrarna `voice`, `speed` och `conversationId` kan anges som query-parametrar. Svaret innehåller text samt MP3-ljud som Base64.
+Skicka ljudfilen i fältet `file`. De valfria parametrarna `voice`, `speed` och `conversationId` kan anges som query-parametrar. Svaret behåller fälten `text` och `audioBase64` och innehåller även `transcript`, `speechDetected`, `conversationId` och `audioAvailable`.
+
+Kontrollera `audioAvailable` och att `audioBase64` inte är tomt innan ljud spelas. Om talsyntesen misslyckas behålls textsvaret och `audioError` förklarar problemet. Vid tom transkribering ges en kort uppmaning att spela in igen utan att en tom fråga skickas till chattmodellen. Standardrösten hämtas från `AZURE_SPEECH_VOICE`; talhastigheten begränsas till 0,5–2,0.
 
 ### Transkribering
 
@@ -148,9 +158,21 @@ Svaret innehåller MP3-ljud som Base64 i fältet `audioBase64`.
 
 ## RAG och vektordata
 
+`TravoltaPromptService` kombinerar huvudinstruktionerna och webbplatsguiden med datum/tid för varje fråga. Röstläget lägger till en egen kort talinstruktion utan att ersätta grundkunskapen. Konversationsminnet sparar upp till 20 meddelanden och körs före dokumenthämtningen, så att ursprungliga användarfrågor sparas utan upprepade PDF-utdrag.
+
 PDF-underlaget finns i `src/main/resources/docs`. Vid första uppstarten delas dokumentet upp i mindre textstycken, bäddas in med `text-embedding-3-large` och sparas i `temp/vectorstore.json` eller den sökväg som anges med `VECTORSTORE_FILEPATH`.
 
+Dokumentsökningen hämtar högst fyra relevanta utdrag. PDF-materialet används som bakgrund och ska inte bekräfta aktuella lopp, väder eller webbplatsfunktioner. Webbplatsguiden laddas direkt från resurser och kräver ingen ny embedding när den uppdateras. Den behöver uppdateras när webbplatsens funktioner ändras.
+
 `SimpleVectorStore` är avsett för den nuvarande mindre dokumentmängden. Vid betydligt större datamängder bör lagringen flyttas till exempelvis pgvector.
+
+## Datatolkning och källor
+
+Svenska kortdatum tolkas dag/månad och saknat år utifrån aktuell svensk tid. Ogiltiga datum eller oklara banor ger ingen gissad träff. Analys-, startliste- och resultatverktyg använder faktiska loppnummer: en spelavdelning som V85-1 måste först kopplas till rätt lopp. En uttryckligen vald spelform ersätts inte automatiskt med vinnare.
+
+`race_results_by_date_track_lap` hämtar lagrade placeringar från `roi.resultat` för hästarna i valt lopp och vald spelform. Svaret anger status och kan vara ofullständigt. De äldre `results_by_*`-verktygen ger analysrader, inte officiella resultat. Analysprocent är inte automatiskt vinstsannolikhet eller spelprocent, och en saknad placering räknas inte som förlust.
+
+Webbsökningen behåller URL-annoteringar och kontrolltid så att Travolta kan hänvisa till sidorna som stöder svaret. API-strukturen följer [OpenAI:s dokumentation om webbsökning och källor](https://developers.openai.com/api/docs/guides/tools-web-search). Nätverksfel och svar utan källor rapporteras som att uppgiften inte kunde verifieras.
 
 ## CORS
 
@@ -164,7 +186,10 @@ Backend tillåter anrop från:
 ## Viktiga konfigurationsfiler
 
 - `src/main/resources/application.properties` – modeller, databas, e-post, röst, retries och MCP.
-- `src/main/resources/prompts/travPrompt.st` – systemprompt och svarsinstruktioner.
+- `src/main/resources/prompts/travPrompt.st` – gemensam systemprompt för korrekthet, dataval och svarsstil.
+- `src/main/resources/prompts/voicePrompt.txt` – tillägg för naturliga, korta talade svar.
+- `src/main/resources/prompts/ragContext.st` – separat mall för dokumentutdrag.
+- `src/main/resources/knowledge/travanalys-guide.txt` – webbplatsens funktioner, navigering och användningshjälp.
 - `src/main/resources/docs` – PDF-underlag för RAG.
 - `temp/vectorstore.json` – lokalt genererat vektorlager.
 

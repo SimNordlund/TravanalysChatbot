@@ -18,7 +18,8 @@ final class TravQueryParser {
     private static final String MONTH_PATTERN = String.join("|", MONTHS);
     private static final Map<String, String> TRACKS = Map.ofEntries(
             Map.entry("Ar", "Arvika"), Map.entry("Ax", "Axevalla"), Map.entry("B", "Bergsåker"),
-            Map.entry("Bo", "Boden"), Map.entry("Bs", "Bollnäs"), Map.entry("D", "Dannero"),
+            Map.entry("Bo", "Boden"), Map.entry("Bs", "Bollnäs"), Map.entry("Bj", "Bjerke"),
+            Map.entry("D", "Dannero"),
             Map.entry("Dj", "Dala Järna"), Map.entry("E", "Eskilstuna"), Map.entry("J", "Jägersro"),
             Map.entry("F", "Färjestad"), Map.entry("G", "Gävle"), Map.entry("Gt", "Göteborg trav"),
             Map.entry("H", "Hagmyren"), Map.entry("Hd", "Halmstad"), Map.entry("Hg", "Hoting"),

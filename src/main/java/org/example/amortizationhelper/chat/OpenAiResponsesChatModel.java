@@ -33,6 +33,11 @@ public class OpenAiResponsesChatModel implements ChatModel {
     private static final Logger log = LoggerFactory.getLogger(OpenAiResponsesChatModel.class);
     private static final int MAX_TOOL_ROUNDS = 24;
     private static final int MAX_TOOL_CALLS = 60;
+    private static final Map<String, String> SEARCH_FIELD_LABELS = Map.of(
+            "dateOrPhrase", "datum", "date", "datum",
+            "banKodOrTrack", "bana", "banKod", "bana",
+            "lapOrAvd", "loppnummer", "lapOrPhrase", "loppnummer", "lap", "loppnummer",
+            "nameFragment", "hästens namn", "starterOrPhrase", "antal starter");
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -41,6 +46,7 @@ public class OpenAiResponsesChatModel implements ChatModel {
     private final int maxOutputTokens;
     private final String promptCacheKey;
     private final Map<String, ToolCallback> callbacks;
+    private final Map<String, List<String>> searchArgumentsByTool;
     private final List<Map<String, Object>> toolDefinitions;
 
     public OpenAiResponsesChatModel(String apiKey, String model, String reasoningEffort,
@@ -53,6 +59,7 @@ public class OpenAiResponsesChatModel implements ChatModel {
         this.promptCacheKey = promptCacheKey;
 
         Map<String, ToolCallback> available = new LinkedHashMap<>();
+        Map<String, List<String>> searchArguments = new LinkedHashMap<>();
         List<Map<String, Object>> definitions = new ArrayList<>();
         for (ToolCallback callback : toolCallbacks) {
             var definition = callback.getToolDefinition();
@@ -66,12 +73,21 @@ public class OpenAiResponsesChatModel implements ChatModel {
                 function.put("description", definition.description());
             }
             String schema = definition.inputSchema();
-            function.put("parameters", schema == null || schema.isBlank()
-                    ? Map.of("type", "object", "properties", Map.of()) : objectMapper.readTree(schema));
+            JsonNode parameters = schema == null || schema.isBlank() ? null : objectMapper.readTree(schema);
+            function.put("parameters", parameters == null
+                    ? Map.of("type", "object", "properties", Map.of()) : parameters);
+            List<String> searchableArguments = new ArrayList<>();
+            if (parameters != null) {
+                parameters.path("properties").fieldNames().forEachRemaining(field -> {
+                    if (SEARCH_FIELD_LABELS.containsKey(field)) searchableArguments.add(field);
+                });
+            }
+            searchArguments.put(definition.name(), List.copyOf(searchableArguments));
             function.put("strict", false);
             definitions.add(function);
         }
         this.callbacks = Map.copyOf(available);
+        this.searchArgumentsByTool = Map.copyOf(searchArguments);
         this.toolDefinitions = List.copyOf(definitions);
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
@@ -152,8 +168,11 @@ public class OpenAiResponsesChatModel implements ChatModel {
                 }
                 String result;
                 try {
-                    result = callback.call(functionCall.path("arguments").asText("{}"),
-                            new ToolContext(toolContext));
+                    String arguments = functionCall.path("arguments").asText("{}");
+                    String missingInput = missingSearchInput(name, arguments);
+                    result = missingInput == null
+                            ? callback.call(arguments, new ToolContext(toolContext))
+                            : missingInput;
                 } catch (RuntimeException e) {
                     log.warn("Travolta tool {} failed: {}", name, e.getClass().getSimpleName());
                     result = "Verktyget kunde inte hämta uppgiften just nu. Hitta inte på resultat.";
@@ -175,6 +194,27 @@ public class OpenAiResponsesChatModel implements ChatModel {
     @Override
     public ChatOptions getDefaultOptions() {
         return ToolCallingChatOptions.builder().model(model).build();
+    }
+
+    private String missingSearchInput(String toolName, String arguments) {
+        List<String> fields = searchArgumentsByTool.getOrDefault(toolName, List.of());
+        if (fields.isEmpty()) return null;
+        try {
+            JsonNode input = objectMapper.readTree(arguments);
+            if (input == null || !input.isObject()) return null;
+            List<String> missing = fields.stream()
+                    .filter(field -> input.path(field).isMissingNode() || input.path(field).isNull()
+                            || input.path(field).asText().isBlank())
+                    .map(SEARCH_FIELD_LABELS::get)
+                    .distinct()
+                    .toList();
+            if (missing.isEmpty()) return null;
+            return "Sökningen saknar " + String.join(", ", missing) + ". Kontrollera om uppgifterna redan finns "
+                    + "i samtalet. Be annars användaren om just det som saknas, med ett kort exempel. "
+                    + "Anta inga värden och påstå inte att sökningen saknar träffar.";
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     private JsonNode request(String instructions, List<Object> input) {

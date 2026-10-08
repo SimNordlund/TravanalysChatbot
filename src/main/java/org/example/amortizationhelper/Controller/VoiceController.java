@@ -2,6 +2,7 @@ package org.example.amortizationhelper.Controller;
 
 import org.example.amortizationhelper.chat.ConversationIdResolver;
 import org.example.amortizationhelper.chat.TravoltaPromptService;
+import org.example.amortizationhelper.chat.TravoltaScopeGuard;
 import org.example.amortizationhelper.voice.AzureSpeechTtsService;
 import org.example.amortizationhelper.voice.SwedishSpeechText;
 import org.slf4j.Logger;
@@ -56,17 +57,20 @@ public class VoiceController {
     private final ChatClient chatClient;
     private final ConversationIdResolver conversationIdResolver;
     private final TravoltaPromptService promptService;
+    private final TravoltaScopeGuard scopeGuard;
 
     public VoiceController(OpenAiAudioTranscriptionModel sttModel,
                            AzureSpeechTtsService ttsService,
                            ChatClient chatClient,
                            ConversationIdResolver conversationIdResolver,
-                           TravoltaPromptService promptService) {
+                           TravoltaPromptService promptService,
+                           TravoltaScopeGuard scopeGuard) {
         this.sttModel = sttModel;
         this.ttsService = ttsService;
         this.chatClient = chatClient;
         this.conversationIdResolver = conversationIdResolver;
         this.promptService = promptService;
+        this.scopeGuard = scopeGuard;
     }
 
     @PostMapping(value = "/chat", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -85,15 +89,18 @@ public class VoiceController {
             // Silence must not become an empty prompt that invents a new conversation turn.
             answerText = "Jag hörde ingen tydlig fråga. Försök gärna igen och prata lite närmare mikrofonen.";
         } else {
-            answerText = chatClient.prompt()
-                    .advisors(advisor -> advisor.param(CHAT_MEMORY_CONVERSATION_ID_KEY, resolvedConversationId))
-                    .system(promptService.forVoice())
-                    .user(userText)
-                    .call()
-                    .content();
+            answerText = scopeGuard.blockReason(userText, resolvedConversationId);
+            if (answerText == null) {
+                answerText = chatClient.prompt()
+                        .advisors(advisor -> advisor.param(CHAT_MEMORY_CONVERSATION_ID_KEY, resolvedConversationId))
+                        .system(promptService.forVoice())
+                        .user(userText)
+                        .call()
+                        .content();
 
-            if (answerText == null || answerText.isBlank()) {
-                answerText = "Jag kunde inte ta fram ett svar just nu. Försök gärna igen.";
+                if (answerText == null || answerText.isBlank()) {
+                    answerText = "Jag kunde inte ta fram ett svar just nu. Försök gärna igen.";
+                }
             }
         }
 

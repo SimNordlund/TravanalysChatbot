@@ -158,7 +158,7 @@ Svaret innehåller MP3-ljud som Base64 i fältet `audioBase64`.
 
 ## RAG och vektordata
 
-`TravoltaPromptService` kombinerar huvudinstruktionerna och webbplatsguiden med datum/tid för varje fråga. Röstläget lägger till en egen kort talinstruktion utan att ersätta grundkunskapen. Konversationsminnet sparar upp till 20 meddelanden och körs före dokumenthämtningen, så att ursprungliga användarfrågor sparas utan upprepade PDF-utdrag.
+`TravoltaPromptService` kombinerar huvudinstruktionerna och webbplatsguiden med datum/tid för varje fråga. Röstläget lägger till en egen kort talinstruktion utan att ersätta grundkunskapen. Före både text- och röstchatten klassificerar `TravoltaScopeGuard` den aktuella frågan mot trav och Travanalys; tydliga följdfrågor får använda en kort del av samtalets historik. Frågor utanför ämnet får ett fast svar utan att chattens sökverktyg körs. Kontrollanropet innebär ett extra modellanrop per fråga. Konversationsminnet sparar upp till 20 meddelanden och körs före dokumenthämtningen, så att ursprungliga användarfrågor sparas utan upprepade PDF-utdrag.
 
 PDF-underlaget finns i `src/main/resources/docs`. Vid första uppstarten delas dokumentet upp i mindre textstycken, bäddas in med `text-embedding-3-large` och sparas i `temp/vectorstore.json` eller den sökväg som anges med `VECTORSTORE_FILEPATH`.
 

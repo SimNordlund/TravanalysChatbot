@@ -2,6 +2,7 @@ package org.example.amortizationhelper.Controller;
 
 import org.example.amortizationhelper.chat.ConversationIdResolver;
 import org.example.amortizationhelper.chat.TravoltaPromptService;
+import org.example.amortizationhelper.chat.TravoltaScopeGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -34,12 +35,14 @@ public class ChatController {
     private final ChatClient chatClient;
     private final ConversationIdResolver conversationIdResolver;
     private final TravoltaPromptService promptService;
+    private final TravoltaScopeGuard scopeGuard;
 
     public ChatController(ChatClient chatClient, ConversationIdResolver conversationIdResolver,
-                          TravoltaPromptService promptService) {
+                          TravoltaPromptService promptService, TravoltaScopeGuard scopeGuard) {
         this.chatClient = chatClient;
         this.conversationIdResolver = conversationIdResolver;
         this.promptService = promptService;
+        this.scopeGuard = scopeGuard;
     }
 
     @GetMapping(value = "/chat-stream", produces = MediaType.TEXT_PLAIN_VALUE)
@@ -58,6 +61,21 @@ public class ChatController {
         String resolvedConversationId = conversationIdResolver.resolve(conversationId);
         String requestId = UUID.randomUUID().toString();
         log.info("[{}] Chat request ({} characters)", requestId, clean.length());
+        String blockedResponse = scopeGuard.blockReason(clean, resolvedConversationId);
+        if (blockedResponse != null) {
+            StreamingResponseBody responseBody = outputStream -> {
+                try (OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {
+                    writer.write(blockedResponse);
+                    writer.flush();
+                }
+            };
+            return ResponseEntity.ok()
+                    .contentType(new MediaType("text", "plain", StandardCharsets.UTF_8))
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-transform")
+                    .header("X-Accel-Buffering", "no")
+                    .header("X-Conversation-Id", resolvedConversationId)
+                    .body(responseBody);
+        }
         StringBuilder responseBuf = new StringBuilder();
 
         Flux<String> contentStream = chatClient.prompt()

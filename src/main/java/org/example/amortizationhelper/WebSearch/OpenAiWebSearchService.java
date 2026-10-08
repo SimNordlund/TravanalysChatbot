@@ -33,13 +33,13 @@ public class OpenAiWebSearchService {
 
     public OpenAiWebSearchService(
             @Value("${spring.ai.openai.api-key}") String apiKey,
-            @Value("${app.openai.web-search.model:gpt-6-luna}") String model,
+            @Value("${app.openai.web-search.model:gpt-6.1-sol}") String model,
             ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.model = model;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(10_000);
-        requestFactory.setReadTimeout(60_000);
+        requestFactory.setReadTimeout(120_000);
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.openai.com/v1")
                 .requestFactory(requestFactory)

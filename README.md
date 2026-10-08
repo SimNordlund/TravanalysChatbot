@@ -6,11 +6,11 @@ Assistenten kan analysera hästar och lopp, hämta registrerade resultat, startl
 
 ## Funktioner
 
-- Strömmande svensk chatt med konversationsminne.
+- Svensk chatt med konversationsminne. Textsvaret skickas när modellens verktygsrunda är klar.
 - Gemensamma systeminstruktioner för text och tal, med aktuell tid i Europe/Stockholm.
 - Webbplatsguide för Analys, Ranking, Spel & ROI och reducering, verifierad mot lokal webbplatskod.
 - Registrerade placeringar från `roi.resultat`, med tydlig markering av saknade och motstridiga uppgifter.
-- GPT-6 Luna för huvudchatten och OpenAI-baserad webbsökning.
+- GPT-6.1 Sol med reasoning för huvudchatten, ämneskontrollen och webbsökningen.
 - Verktygsanrop för travdata, startlistor, väder, andelsköp och e-post.
 - RAG över inbäddade PDF-dokument med lokal `SimpleVectorStore`.
 - REST-endpoint för topplistor per datum, bana och spelform.
@@ -25,19 +25,19 @@ Assistenten kan analysera hästar och lopp, hämta registrerade resultat, startl
 | Java | 21 |
 | Spring Boot | 3.4.4 |
 | Spring AI | 1.0.9 |
-| Chattmodell | `gpt-6-luna` |
+| Chattmodell | `gpt-6.1-sol` |
 | Embeddings | `text-embedding-3-large` |
 | Transkribering | `gpt-4o-transcribe` |
 | Databas | PostgreSQL |
 | Talsyntes | Azure Speech |
 
-Huvudchatten använder Spring AI:s Chat Completions-integration. Eftersom Travolta använder function calling körs GPT-6 Luna med `reasoning-effort=none`. Den separata webbsökningsfunktionen använder OpenAI Responses API.
+Huvudchatten använder Spring AI:s `ChatClient`, minne, RAG och verktygsdefinitioner. En lokal adapter skickar modell- och verktygsanrop via OpenAI Responses API, eftersom GPT-6.1 Sol kräver Responses för function calling med reasoning. `app.openai.chat.reasoning-effort=medium` är standard. Adaptern skickar tillbaka verktygsresultat och krypterade reasoning-objekt i samma frågerunda utan att lagra svar hos OpenAI (`store=false`). Chattens HTTP-endpoint behåller sitt gränssnitt men levererar texten efter att modellens verktygsrunda avslutats. Den separata webbsökningen använder också Responses API.
 
 ## Förutsättningar
 
 - Java 21.
 - En PostgreSQL-databas med projektets förväntade tabeller. Hibernate kör med `ddl-auto=validate` och skapar därför inte schemat.
-- En OpenAI API-nyckel med åtkomst till `gpt-6-luna`.
+- En OpenAI API-nyckel med åtkomst till `gpt-6.1-sol`.
 - Azure Speech-uppgifter om röstfunktionerna ska användas.
 - Node.js och `npx` om MCP-väderklienten ska vara aktiverad.
 
@@ -72,8 +72,8 @@ Ytterligare valfria inställningar:
 | `PORT` | `8081` | Serverport. |
 | `VECTORSTORE_FILEPATH` | `temp/vectorstore.json` | Sökväg till lokal vektordata. |
 | `CHAT_MEMORY_SESSION_TTL` | `PT6H` | Inaktivitetstid innan en chattsession förfaller. |
-| `CHAT_MAX_COMPLETION_TOKENS` | `2500` | Tak för modellens svar; enkla frågor instrueras fortfarande få korta svar. |
-| `CHAT_STREAM_TIMEOUT` | `180s` | Timeout för strömmande svar som kan behöva data- och webbsökningar. |
+| `CHAT_MAX_OUTPUT_TOKENS` | `8000` | Tak per Responses-anrop, inklusive reasoning och svarstext. Ersätter `CHAT_MAX_COMPLETION_TOKENS`. |
+| `CHAT_STREAM_TIMEOUT` | `300s` | Timeout för chattsvar som kan behöva flera verktygsanrop. |
 | `AI_LOG_LEVEL` | `INFO` | Loggnivå för Spring AI. Använd `DEBUG` endast vid felsökning. |
 | `MCP_CLIENT_ENABLED` | `true` | Aktiverar MCP-klienten. Sätt till `false` för enklast lokal start. |
 | `MCP_REQUEST_TIMEOUT` | `15s` | Timeout för MCP-anrop. |
@@ -158,7 +158,7 @@ Svaret innehåller MP3-ljud som Base64 i fältet `audioBase64`.
 
 ## RAG och vektordata
 
-`TravoltaPromptService` kombinerar huvudinstruktionerna och webbplatsguiden med datum/tid för varje fråga. Röstläget lägger till en egen kort talinstruktion utan att ersätta grundkunskapen. Före både text- och röstchatten klassificerar `TravoltaScopeGuard` den aktuella frågan mot trav och Travanalys; tydliga följdfrågor får använda en kort del av samtalets historik. Frågor utanför ämnet får ett fast svar utan att chattens sökverktyg körs. Kontrollanropet innebär ett extra modellanrop per fråga. Konversationsminnet sparar upp till 20 meddelanden och körs före dokumenthämtningen, så att ursprungliga användarfrågor sparas utan upprepade PDF-utdrag.
+`TravoltaPromptService` kombinerar huvudinstruktionerna och webbplatsguiden med datum/tid för varje fråga. Röstläget lägger till en egen kort talinstruktion utan att ersätta grundkunskapen. Före både text- och röstchatten bedömer `TravoltaScopeGuard` den aktuella frågan mot trav och Travanalys; tydliga följdfrågor får använda en kort del av samtalets historik. Frågor utanför ämnet får ett fast svar utan att chattens sökverktyg körs. Vanliga hälsningar och uppenbara travfrågor kan avgöras direkt. Övriga frågor ger ett separat modellanrop; om det anropet fallerar får tydliga travfrågor ändå gå vidare. Konversationsminnet sparar upp till 20 meddelanden och körs före dokumenthämtningen, så att ursprungliga användarfrågor sparas utan upprepade PDF-utdrag.
 
 PDF-underlaget finns i `src/main/resources/docs`. Vid första uppstarten delas dokumentet upp i mindre textstycken, bäddas in med `text-embedding-3-large` och sparas i `temp/vectorstore.json` eller den sökväg som anges med `VECTORSTORE_FILEPATH`.
 
@@ -193,4 +193,4 @@ Backend tillåter anrop från:
 - `src/main/resources/docs` – PDF-underlag för RAG.
 - `temp/vectorstore.json` – lokalt genererat vektorlager.
 
-Se den [officiella dokumentationen för GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) och [Spring AI 1.0-dokumentationen](https://docs.spring.io/spring-ai/reference/1.0/) för mer information om integrationerna.
+Se den [officiella dokumentationen för GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) och [Spring AI 1.0-dokumentationen](https://docs.spring.io/spring-ai/reference/1.0/) för mer information om integrationerna.

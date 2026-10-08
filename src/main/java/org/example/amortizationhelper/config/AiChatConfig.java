@@ -2,8 +2,8 @@ package org.example.amortizationhelper.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpSyncClient;
-import lombok.RequiredArgsConstructor;
 import org.example.amortizationhelper.chat.ExpiringInMemoryChatMemory;
+import org.example.amortizationhelper.chat.OpenAiResponsesChatModel;
 import org.example.amortizationhelper.chat.TravoltaPromptService;
 import org.example.amortizationhelper.Email.EmailTools;
 import org.example.amortizationhelper.Tools.KopAndelTools;
@@ -26,6 +26,7 @@ import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugment
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.template.st.StTemplateRenderer;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
@@ -41,7 +42,6 @@ import java.util.Arrays;
 import java.util.List;
 
 @Configuration
-@RequiredArgsConstructor
 public class AiChatConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AiChatConfig.class);
@@ -53,8 +53,7 @@ public class AiChatConfig {
     }
 
     @Bean
-    public ChatClient chatClient(ChatClient.Builder builder,
-                                 VectorStore vectorStore,
+    public ChatClient chatClient(VectorStore vectorStore,
                                  ResourceLoader resourceLoader,
                                  TravoltaPromptService promptService,
                                  TravTools travTools,
@@ -66,7 +65,13 @@ public class AiChatConfig {
                                  ObjectProvider<List<McpSyncClient>> mcpSyncClientsProvider,
                                  ObjectMapper objectMapper,
                                  ChatMemoryRepository chatMemoryRepository,
-                                 WebSearchTools webSearchTools) throws Exception {
+                                 WebSearchTools webSearchTools,
+                                 @Value("${spring.ai.openai.api-key}") String apiKey,
+                                 @Value("${app.openai.chat.model:gpt-6.1-sol}") String model,
+                                 @Value("${app.openai.chat.reasoning-effort:medium}") String reasoningEffort,
+                                 @Value("${app.openai.chat.max-output-tokens:8000}") int maxOutputTokens,
+                                 @Value("${app.openai.chat.prompt-cache-key:travolta-chat-v3}") String promptCacheKey)
+            throws Exception {
 
         var retriever = VectorStoreDocumentRetriever.builder()
                 .similarityThreshold(0.5)
@@ -116,12 +121,16 @@ public class AiChatConfig {
         var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).order(-100).build();
 
         ToolCallback[] mcpCallbacks = loadMcpCallbacks(mcpSyncClientsProvider, objectMapper);
+        ToolCallback[] localCallbacks = ToolCallbacks.from(
+                travTools, startlistaTools, trackWeatherTools, webSearchTools, emailTools, kopAndelTools);
+        ToolCallback[] callbacks = java.util.stream.Stream.concat(
+                Arrays.stream(localCallbacks), Arrays.stream(mcpCallbacks)).toArray(ToolCallback[]::new);
+        var responsesModel = new OpenAiResponsesChatModel(
+                apiKey, model, reasoningEffort, maxOutputTokens, promptCacheKey, objectMapper, callbacks);
 
-        return builder
+        return ChatClient.builder(responsesModel)
                 .defaultSystem(promptService.forText())
                 .defaultAdvisors(memoryAdvisor, ragAdvisor)
-                .defaultTools(travTools, startlistaTools, trackWeatherTools, webSearchTools, emailTools, kopAndelTools) //roiTools temp removed 2026-03-14
-                .defaultToolCallbacks(mcpCallbacks)
                 .build();
     }
 

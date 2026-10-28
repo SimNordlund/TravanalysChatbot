@@ -78,6 +78,20 @@ Ytterligare valfria inställningar:
 | `MCP_CLIENT_ENABLED` | `true` | Aktiverar MCP-klienten. Sätt till `false` för enklast lokal start. |
 | `MCP_REQUEST_TIMEOUT` | `15s` | Timeout för MCP-anrop. |
 | `MCP_WEATHER_COMMAND` | `npx` | Kommando som startar väderservern. |
+| `REDUCTION_API_BASE_URL` | `https://travanalys-reducering-backend-latest.onrender.com` | Samma reducerings-API som webbplatsen. Använd `http://localhost:63093` för lokal reduceringsbackend. |
+| `REDUCTION_CONNECT_TIMEOUT` | `10s` | Anslutningstimeout för reducerings-API:t. |
+| `REDUCTION_READ_TIMEOUT` | `120s` | Svarstimeout för förhandsgranskning och XML-generering. |
+| `REDUCTION_MAX_COMBINATIONS` | `1000000` | Högsta antal kombinationer före filtrering; även kartesisk övre gräns för Trio. |
+
+## Reducerade filer i chatten
+
+Travolta använder reduceringens befintliga API direkt. Ingen Playwright-installation eller ny MCP-server behövs. `reduction_options` hämtar alternativ, `preview_reduced_system` beräknar systemet och `create_reduced_system_file` skapar en tillfällig XML-länk. Text- och röstchatten delar verktyg och samtalsnyckel.
+
+Användaren behöver ange spelform, datum, bana, faktiskt startlopp, hästval i rankordning och ett angivet eller verifierat radpris. Endast en bana med följande loppnummer stöds. Rankvillkoren är samma som i webbformuläret; standarden är Min rank 0 och Max rank 13. Kostnaden beräknas från angivet radpris. Den verifieras inte av ATG, och för fleravdelningsspel ändrar radpriset inte insatsen i XML-filen. Inget spel lämnas in.
+
+Förhandsgranskningen sparar en oföränderlig kopia av valen i högst 15 minuter, med ett slumpmässigt id knutet till det aktuella samtalet. Filverktyget tar endast detta id och återanvänder exakt dessa val. Ändrade val kräver ny förhandsgranskning; ett misslyckat ändringsförsök inaktiverar den gamla. Minnet rymmer högst 1000 samtalsunderlag och försvinner vid omstart. Samtalsnyckeln är samma anonyma nyckel som används för chatthistoriken, inte ett inloggningsbevis; integrationen läser inga privata kontouppgifter.
+
+XML-länken visas i chatten och kan skickas med det befintliga textmejlet när användaren ber om det och anger mottagaradress. Ingen bilaga skickas. Reduceringsservern anger giltighetstiden (för närvarande 15 minuter), och länken kan sluta fungera tidigare vid omstart av reduceringstjänsten. Upprepade filanrop för samma förhandsgranskning återanvänder länken medan den gäller. API-adressen konfigureras på servern; modellen kan inte välja anropsadress eller mottagarsession. Inga API-anrop sker vid uppstart.
 
 ## Starta lokalt
 

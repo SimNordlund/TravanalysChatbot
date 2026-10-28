@@ -3,6 +3,7 @@ package org.example.amortizationhelper.Controller;
 import org.example.amortizationhelper.chat.ConversationIdResolver;
 import org.example.amortizationhelper.chat.TravoltaPromptService;
 import org.example.amortizationhelper.chat.TravoltaScopeGuard;
+import org.example.amortizationhelper.Tools.ReductionTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -21,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.Map;
 
 @RestController
 public class ChatController {
@@ -81,6 +83,8 @@ public class ChatController {
         Flux<String> contentStream = chatClient.prompt()
                 .system(promptService.forText())
                 .advisors(advisor -> advisor.param(CHAT_MEMORY_CONVERSATION_ID_KEY, resolvedConversationId))
+                // Verktyget får samtalsnyckeln från servern, aldrig som ett modellvalt argument.
+                .toolContext(Map.of(ReductionTools.CONVERSATION_CONTEXT_KEY, resolvedConversationId))
                 .user(clean)
                 .stream()
                 .content();

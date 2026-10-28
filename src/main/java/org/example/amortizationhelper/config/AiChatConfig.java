@@ -7,6 +7,7 @@ import org.example.amortizationhelper.chat.OpenAiResponsesChatModel;
 import org.example.amortizationhelper.chat.TravoltaPromptService;
 import org.example.amortizationhelper.Email.EmailTools;
 import org.example.amortizationhelper.Tools.KopAndelTools;
+import org.example.amortizationhelper.Tools.ReductionTools;
 import org.example.amortizationhelper.Tools.StartlistaTools;
 import org.example.amortizationhelper.Tools.TravTools;
 import org.example.amortizationhelper.WebSearch.WebSearchTools;
@@ -60,6 +61,7 @@ public class AiChatConfig {
                                  StartlistaTools startlistaTools,
                                  EmailTools emailTools,
                                  KopAndelTools kopAndelTools,
+                                 ReductionTools reductionTools,
                                  TrackWeatherTools trackWeatherTools,
                                  //RoiTools roiTools,
                                  ObjectProvider<List<McpSyncClient>> mcpSyncClientsProvider,
@@ -121,8 +123,9 @@ public class AiChatConfig {
         var memoryAdvisor = MessageChatMemoryAdvisor.builder(memory).order(-100).build();
 
         ToolCallback[] mcpCallbacks = loadMcpCallbacks(mcpSyncClientsProvider, objectMapper);
+        // Samma API-verktyg används i text och tal; filgenereringen körs i reduceringstjänsten.
         ToolCallback[] localCallbacks = ToolCallbacks.from(
-                travTools, startlistaTools, trackWeatherTools, webSearchTools, emailTools, kopAndelTools);
+                travTools, startlistaTools, trackWeatherTools, webSearchTools, emailTools, kopAndelTools, reductionTools);
         ToolCallback[] callbacks = java.util.stream.Stream.concat(
                 Arrays.stream(localCallbacks), Arrays.stream(mcpCallbacks)).toArray(ToolCallback[]::new);
         var responsesModel = new OpenAiResponsesChatModel(

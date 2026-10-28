@@ -3,6 +3,7 @@ package org.example.amortizationhelper.Controller;
 import org.example.amortizationhelper.chat.ConversationIdResolver;
 import org.example.amortizationhelper.chat.TravoltaPromptService;
 import org.example.amortizationhelper.chat.TravoltaScopeGuard;
+import org.example.amortizationhelper.Tools.ReductionTools;
 import org.example.amortizationhelper.voice.AzureSpeechTtsService;
 import org.example.amortizationhelper.voice.SwedishSpeechText;
 import org.slf4j.Logger;
@@ -93,6 +94,8 @@ public class VoiceController {
             if (answerText == null) {
                 answerText = chatClient.prompt()
                         .advisors(advisor -> advisor.param(CHAT_MEMORY_CONVERSATION_ID_KEY, resolvedConversationId))
+                        // Delad samtalsnyckel gör att ett granskat system kan följas upp i text eller tal.
+                        .toolContext(Map.of(ReductionTools.CONVERSATION_CONTEXT_KEY, resolvedConversationId))
                         .system(promptService.forVoice())
                         .user(userText)
                         .call()

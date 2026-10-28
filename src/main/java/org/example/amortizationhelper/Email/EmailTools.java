@@ -18,7 +18,8 @@ public class EmailTools {
     public String sendEmail(
             @ToolParam(description = "Recipient email address exactly as provided by the user, for example test@sbab.se") String to,
             @ToolParam(description = "Short Swedish email subject") String subject,
-            @ToolParam(description = "Plain text Swedish email body with race picks or winner suggestion") String body
+            // Befintligt textmejl räcker för en riktig fillänk; ingen bilagehämtning behövs.
+            @ToolParam(description = "Plain text Swedish email body with race picks, winner suggestion or an actual generated reduction download URL. For temporary files include the returned expiry time; never invent a URL or claim an attachment.") String body
     ) {
 
         emailService.sendPlainTextEmail(to, subject, body);
